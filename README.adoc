@@ -1,0 +1,32 @@
+:name: graph-data-science
+:long_name: Graph Data Science
+:description: Leverage Neo4j Graph Data Science library to explore graph algorithms for analytics and feature engineering.
+:icon: 
+:logo: 
+:tags: graph data science,graph algorithms,graph features
+:author: Will Lyon
+:use-load-script: 
+:use-dump-file: 
+:use-plugin: gds
+:target-db-version: 3.5.14
+:bloom-perspective: 
+:guide: documentation/index.adoc
+:rendered-guide: https://guides.neo4j.com/sandbox/graph-data-science/index.html
+:model:
+:model-guide:
+:todo: Check on images associated with documentation, generate a data model, find associated logo/icon
+image::{logo}[]
+
+= {long_name} Graph Example
+
+Description: {description}
+
+TODO: {todo}
+
+=== Setup
+
+This is for version: {target-db-version}
+
+unrendered guide: {guide}
+
+rendered guide available from: {rendered-guide}
