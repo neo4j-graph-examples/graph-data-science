@@ -6,9 +6,9 @@
 :tags: graph data science,graph algorithms,graph features
 :author: Will Lyon
 :use-load-script: 
-:use-dump-file: 
+:use-dump-file: data/graph-data-science-40.dump
 :use-plugin: gds
-:target-db-version: 3.5.14
+:target-db-version: 3.5,4.0
 :bloom-perspective: 
 :guide: documentation/index.adoc
 :rendered-guide: https://guides.neo4j.com/sandbox/graph-data-science/index.html
