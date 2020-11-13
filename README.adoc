@@ -10,7 +10,7 @@
 :use-plugin: gds
 :target-db-version: 3.5,4.0
 :bloom-perspective: bloom/graph-data-science.bloom-perspective
-:guide: documentation/guide.adoc
+:guide: documentation/graph-data-science.neo4j-browser-guide
 :rendered-guide: https://guides.neo4j.com/sandbox/graph-data-science/index.html
 :model: documentation/img/model.svg
 
