@@ -20,7 +20,7 @@
 :param-name: name
 :param-value: Jaime Lannister
 :result-column: person
-:expected-result: Person
+:expected-result: Tyrion Lannister
 
 :model-guide:
 :todo: 
