@@ -2,31 +2,61 @@
 :long_name: Graph Data Science
 :description: Leverage Neo4j Graph Data Science library to explore graph algorithms for analytics and feature engineering.
 :icon: 
-:logo: 
-:tags: graph data science,graph algorithms,graph features
-:author: Will Lyon
+:logo: documentation/img/gds-logo.jpg
+:tags: example-data,dataset,got-data,graph-data-science,graph-algorithms,graph-features
+:author: William Lyon
 :use-load-script: 
 :use-dump-file: data/graph-data-science-40.dump
 :use-plugin: gds
 :target-db-version: 3.5,4.0
-:bloom-perspective: 
-:guide: documentation/index.adoc
+:bloom-perspective: bloom/graph-data-science.bloom-perspective
+:guide: documentation/graph-data-science.neo4j-browser-guide
 :rendered-guide: https://guides.neo4j.com/sandbox/graph-data-science/index.html
-:model:
+:model: documentation/img/model.svg
+
+:query: MATCH (c:Person{name:$name})-[r:INTERACTS]->(other) +
+  RETURN other.name as person +
+
+:param-name: name
+:param-value: Jaime Lannister
+:result-column: person
+:expected-result: Tyrion Lannister
+
 :model-guide:
-:todo: Check on images associated with documentation, generate a data model, find associated logo/icon
+:todo: 
 image::{logo}[]
 
 = {long_name} Graph Example
 
-Description: {description}
+Description: _{description}_
 
-TODO: {todo}
+.Model
+image::{model}[]
+
+.Example
+image::{example}[width=600]
+
+.Example Query:
+[source,cypher,subs=attributes]
+----
+{query}
+----
 
 === Setup
 
-This is for version: {target-db-version}
+This is for Neo4j version: `{target-db-version}`
 
-unrendered guide: {guide}
+Rendered guide available from: `:play graph-data-science` 
+// or `:play {rendered-guide}``
 
-rendered guide available from: {rendered-guide}
+Unrendered guide: link:{guide}[]
+
+Data files: `{data}`
+
+=== Code Examples
+
+* link:code/javascript/example.js[JavaScript]
+* link:code/java/Example.java[Java]
+* link:code/csharp/Example.cs[C#]
+* link:code/python/example.py[Python]
+* link:code/go/example.go[Go]
