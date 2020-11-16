@@ -6,6 +6,7 @@
 :tags: example-data,dataset,got-data,graph-data-science,graph-algorithms,graph-features
 :author: William Lyon
 :use-load-script: 
+:data:
 :use-dump-file: data/graph-data-science-40.dump
 :use-plugin: gds
 :target-db-version: 3.5,4.0
