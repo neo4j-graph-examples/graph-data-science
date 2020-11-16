@@ -13,6 +13,7 @@
 :guide: documentation/graph-data-science.neo4j-browser-guide
 :rendered-guide: https://guides.neo4j.com/sandbox/graph-data-science/index.html
 :model: documentation/img/model.svg
+:example: documentation/img/example.svg
 
 :query: MATCH (c:Person{name:$name})-[r:INTERACTS]->(other) +
   RETURN other.name as person +
