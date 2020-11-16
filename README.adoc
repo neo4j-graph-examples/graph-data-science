@@ -14,8 +14,8 @@
 :rendered-guide: https://guides.neo4j.com/sandbox/graph-data-science/index.html
 :model:
 :model-guide:
-:todo: Check on images associated with documentation, generate a data model, find associated logo/icon
-image::{logo}[]
+:todo: 
+image::{logo}[width=200]
 
 = {long_name} Graph Example
 
