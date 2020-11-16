@@ -51,7 +51,7 @@ Rendered guide available from: `:play graph-data-science`
 
 Unrendered guide: link:{guide}[]
 
-Data files: `{data}`
+Data files: `{use-dump-file}`
 
 === Code Examples
 
