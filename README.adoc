@@ -1,5 +1,5 @@
 :name: graph-data-science
-:long_name: Graph Data Science
+:long-name: Graph Data Science
 :description: Leverage Neo4j Graph Data Science library to explore graph algorithms for analytics and feature engineering.
 :icon: 
 :logo: documentation/img/gds-logo.png
@@ -28,7 +28,7 @@
 :todo: 
 image::{logo}[width=100]
 
-= {long_name} Graph Example
+== {long-name} Graph Example
 
 Description: _{description}_
 
