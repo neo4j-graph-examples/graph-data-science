@@ -1,7 +1,7 @@
 {
     "name": "graph-data-science",
     "description":"Leverage Neo4j Graph Data Science library to explore graph algorithms for analytics and feature engineering",
-    "install": [
+    "dbms": [
         {
             "dumpFile": "data/graph-data-science-35.dump",
             "targetNeo4jVersion":"3.5"
