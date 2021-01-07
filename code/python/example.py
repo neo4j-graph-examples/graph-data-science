@@ -8,7 +8,7 @@ driver = GraphDatabase.driver(
   auth=basic_auth("<USERNAME>", "<PASSWORD>"))
 
 cypher_query = '''
-MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)
+MATCH (c:Person{name:$name})-[r:INTERACTS]->(other) 
 RETURN other.name as person
 '''
 
