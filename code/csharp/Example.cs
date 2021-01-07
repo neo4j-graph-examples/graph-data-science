@@ -18,7 +18,7 @@ namespace dotnet {
 
     var cypherQuery =
       @"
-      MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)
+      MATCH (c:Person{name:$name})-[r:INTERACTS]->(other) 
       RETURN other.name as person
       ";
 
