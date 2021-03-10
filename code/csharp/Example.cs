@@ -18,8 +18,8 @@ namespace dotnet {
 
     var cypherQuery =
       @"
-      MATCH (c:Person{name:$name})-[r:INTERACTS]->(other) 
-      RETURN other.name as person
+      MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)
+        RETURN other.name as person
       ";
 
     var session = driver.AsyncSession(o => o.WithDatabase("neo4j"));
