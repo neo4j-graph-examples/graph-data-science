@@ -17,14 +17,6 @@
 :model: documentation/img/model.svg
 :example: documentation/img/example.svg
 
-:query: MATCH (c:Person{name:$name})-[r:INTERACTS]->(other) +
-  RETURN other.name as person +
-
-:param-name: name
-:param-value: Jaime Lannister
-:result-column: person
-:expected-result: Tyrion Lannister
-
 :todo: false
 image::{icon}[width=100]
 
@@ -43,9 +35,10 @@ image::{model}[]
 image::{example}[width=600]
 
 .Example Query:
-[source,cypher,subs=attributes]
+[source,cypher,role=query-example,param-name=name,param-value="Jaime Lannister",result-column=person,expected-result="Tyrion Lannister"]
 ----
-{query}
+MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)
+  RETURN other.name as person
 ----
 
 === Setup
