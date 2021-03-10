@@ -8,8 +8,8 @@ driver = GraphDatabase.driver(
   auth=basic_auth("<USERNAME>", "<PASSWORD>"))
 
 cypher_query = '''
-MATCH (c:Person{name:$name})-[r:INTERACTS]->(other) 
-RETURN other.name as person
+MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)
+  RETURN other.name as person
 '''
 
 with driver.session(database="neo4j") as session:

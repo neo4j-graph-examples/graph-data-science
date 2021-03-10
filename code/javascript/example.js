@@ -7,8 +7,8 @@ const driver = neo4j.driver('bolt://<HOST>:<BOLTPORT>',
 
 const query =
   `
-  MATCH (c:Person{name:$name})-[r:INTERACTS]->(other) 
-  RETURN other.name as person
+  MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)
+    RETURN other.name as person
   `;
 
 const params = {"name": "Jaime Lannister"};
