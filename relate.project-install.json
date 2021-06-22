@@ -7,8 +7,12 @@
             "targetNeo4jVersion":"3.5"
         },
         {
-            "dumpFile": "data/graph-data-science-40.dump",
-            "targetNeo4jVersion": "^4.0"
+            "dumpFile": "data/fraud-detection-40.dump",
+            "targetNeo4jVersion": "4.0.* - 4.2.*"
+        },
+        {
+            "dumpFile": "data/fraud-detection-43.dump",
+            "targetNeo4jVersion": "^4.3"
         }
     ]
 }
