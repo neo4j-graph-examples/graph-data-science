@@ -1,0 +1,126 @@
+= Graph Algorithms
+:icons: font
+
+== Neo4j Graph Data Science
+
+The Neo4j Graph Data Science (GDS) library contains a set of graph algorithms, exposed through Cypher procedures.  Graph algorithms provide insights into the graph structure and elements, for example, by computing centrality, similarity scores, and detecting communities.  The GDS library is divided into three tiers of maturity: product, beta, and alpha.
+
+This guide demonstrates how to create the graph projections necessary to run a variety of GDS algorithms and some examples of using the GDS library to run basic graph algorithms.
+
+The official GDS library documentation can be found https://neo4j.com/docs/graph-data-science/current[here].
+
+== Graph Model
+
+Before you run any of the algorithms, you need to import your data.  We will be working with an example dataset that shows the connections between different airports across the world.  
+
+*_Insert graph schema image here_*
+
+=== Attribution
+
+This dataset was initially created by Kelvin Lawrence, available under the Apache License Version 2.0.  The original dataset can be found https://github.com/krlawrence/graph[GitHub repository] and has been modified for the purposes of this guide.
+
+== Loading the data
+
+We will use the Cypher command `LOAD CSV` to import our data into Neo4j from CSV file hosted on GitHub.  It will parse a CSV file line by line as objects that can then be manipulated using Cypher.  
+
+We begin by creating uniqeness constraints on each of the nodes, which make for efficient queries.
+
+[source,cypher]
+----
+CREATE CONSTRAINT airports ON (a:Airport) ASSERT a.iata IS UNIQUE;
+CREATE CONSTRAINT cities ON (c:City) ASSERT c.name IS UNIQUE;
+CREATE CONSTRAINT regions ON (r:Region) ASSERT r.name IS UNIQUE;
+CREATE CONSTRAINT countries ON (c:Country) ASSERT c.code IS UNIQUE;
+CREATE CONSTRAINT continents ON (c:Continent) ASSERT c.code IS UNIQUE;
+----
+
+Next we will import the Airport, Country, and Continent nodes and set their properties.
+
+*_Redo this section such that we do not populate airport nodes with properties that then get used for nodes_*
+
+[source,cypher]
+----
+WITH 
+    'https://raw.githubusercontent.com/cj2001/bite_sized_data_science/main/data/airport-node-list.csv'
+    AS url
+LOAD CSV WITH HEADERS FROM url AS row
+MERGE (a:Airport {iata: row.iata})
+SET a.id = row.id,
+    a.icao = row.icao,
+    a.city = row.city,
+    a.descr = row.descr,
+    a.region = row.region,
+    a.runways = toInteger(row.runways),
+    a.longest = toInteger(row.longest),
+    a.altitude = toInteger(row.altitude),
+    a.country = row.country,
+    a.continent = row.continent,
+    a.lat = toFloat(row.lat),
+    a.lon = toFloat(row.lon);
+
+WITH 
+    'https://raw.githubusercontent.com/cj2001/bite_sized_data_science/main/data/country-node-list.csv'
+    AS url
+LOAD CSV WITH HEADERS FROM url AS row
+MERGE (c:Country {code: row.code})
+SET c.descr = row.descr;
+
+WITH 
+    'https://raw.githubusercontent.com/cj2001/bite_sized_data_science/main/data/continent-node-list.csv'
+    AS url
+LOAD CSV WITH HEADERS FROM url AS row
+MERGE (c:Continent {code: row.code})
+SET c.descr = row.descr;
+----
+
+Finally, we will import all of our relationships.  Note that some of the relationships only exist in the Airport nodes list (in the CSV file).  We will use these to artifically create the City and Region nodes as well as the relationships between them and the Airport, Country, and Continent nodes.  Note that the `(Airport)-[:HAS_ROUTE]-(Airport)` relationship has a relationship property of `distance`, indicating the distance between each of the airports.  We will later use this to create weighted graphs.
+
+[source,cypher]
+----
+LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/cj2001/bite_sized_data_science/main/data/iroutes-edges.csv' AS row
+MATCH (source:Airport {iata: row.src})
+MATCH (target:Airport {iata: row.dest})
+MERGE (source)-[r:HAS_ROUTE]->(target)
+ON CREATE SET r.distance = toInteger(row.dist);
+
+MATCH (a:Airport)
+MERGE (c:City {name: a.city})
+MERGE (a)-[:IN_CITY]->(c);
+
+MATCH (a:Airport)
+MERGE (r:Region {name: a.region})
+MERGE (a)-[:IN_REGION]->(r);
+
+MATCH (a:Airport)
+MATCH (c:Country {code: a.country})
+MERGE (a)-[:IN_COUNTRY]->(c);
+
+MATCH (a:Airport)
+MATCH (ci:City {name: a.city})
+MATCH (co:Country {code: a.country})
+MERGE (ci)-[:IN_COUNTRY]->(co);
+
+MATCH (a:Airport)
+MATCH (r:Region {name: a.region})
+MATCH (co:Country {code: a.country})
+MERGE (r)-[:IN_COUNTRY]->(co);
+
+MATCH (a:Airport)
+MATCH (c:Continent {code: a.continent})
+MERGE (a)-[:ON_CONTINENT]->(c);
+
+MATCH (a:Airport)
+MATCH (ci:City {name: a.city})
+MATCH (co:Continent {code: a.continent})
+MERGE (ci)-[:ON_CONTINENT]->(co);
+
+MATCH (a:Airport)
+MATCH (r:Region {name: a.region})
+MATCH (co:Continent {code: a.continent})
+MERGE (r)-[:ON_CONTINENT]->(co);
+
+MATCH (a:Airport)
+MATCH (c:Country {code: a.country})
+MATCH (co:Continent {code: a.continent})
+MERGE (c)-[:ON_CONTINENT]->(co);
+----
