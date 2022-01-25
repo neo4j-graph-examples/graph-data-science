@@ -5,7 +5,11 @@
 
 The Neo4j Graph Data Science (GDS) library contains a set of graph algorithms, exposed through Cypher procedures.  Graph algorithms provide insights into the graph structure and elements, for example, by computing centrality, similarity scores, and detecting communities.  The GDS library is divided into three tiers of maturity: product, beta, and alpha.
 
-This guide demonstrates how to create the graph projections necessary to run a variety of GDS algorithms and some examples of using the GDS library to run basic graph algorithms.
+This guide demonstrates the usual workflow for how to run production-tier algorithms.  The generalized workflow is as follows:app-name: 
+
+* How to create a graph projection (also referred to as an "in-memory graph")
+* How graph projections are used to run a graph algorithm with GDS
+* Examples of running a few graph algorithms and interpretation of their results
 
 The official GDS library documentation can be found https://neo4j.com/docs/graph-data-science/current[here].
 
@@ -124,3 +128,4 @@ MATCH (c:Country {code: a.country})
 MATCH (co:Continent {code: a.continent})
 MERGE (c)-[:ON_CONTINENT]->(co);
 ----
+
