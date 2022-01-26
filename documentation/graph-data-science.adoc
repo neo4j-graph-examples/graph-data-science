@@ -15,7 +15,7 @@ The official GDS library documentation can be found https://neo4j.com/docs/graph
 
 == Graph Model
 
-Before you run any of the algorithms, you need to import your data.  We will be working with an example dataset that shows the connections between different airports across the world.  
+Before you run any of the algorithms, you need to import your data.  We will be working with an example dataset that shows the connections between different airports across the world. Note that we have 5 different node labels (`Airport`, `City`, `Country`, `Continent`, and `Region`) and 5 different relationship types (`:HAS_ROUTE`, `:IN_CITY`, `:IN_COUNTRY`, `:IN_REGION`, and `:ON_CONTINENT`).
 
 *_Insert graph schema image here_*
 
