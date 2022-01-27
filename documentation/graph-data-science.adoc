@@ -11,13 +11,17 @@ This guide demonstrates the usual workflow for how to run production-tier algori
 * How graph projections are used to run a graph algorithm with GDS
 * Examples of running a few graph algorithms and interpretation of their results
 
-The official GDS library documentation can be found https://neo4j.com/docs/graph-data-science/current[here].
+The official GDS library documentation can be found link:https://neo4j.com/docs/graph-data-science/current/[here^].
 
 == Graph Model
 
 Before you run any of the algorithms, you need to import your data.  We will be working with an example dataset that shows the connections between different airports across the world. Note that we have 5 different node labels (`Airport`, `City`, `Country`, `Continent`, and `Region`) and 5 different relationship types (`:HAS_ROUTE`, `:IN_CITY`, `:IN_COUNTRY`, `:IN_REGION`, and `:ON_CONTINENT`).
 
 *_Insert graph schema image here_*
+
+// image::img/air_route_schema.png
+
+image::https://s3.amazonaws.com/guides.neo4j.com/graph-data-science2/air_route_schema.png[float="right",width=300]
 
 === Attribution
 
@@ -173,7 +177,35 @@ The first step in executing any GDS algorithm is to create a graph projection (a
 
 Graph projections can be created through one of two methods: native projections and Cypher projections.  These graph projections are then stored in the graph catalog under a user-defined name.
 
-== Graph projections created via native projections
+== Graph catalog: creating a graph with native projections
+
+== Graph catalog: creating a graph with Cypher projections
+
+== Graph catalog: listing and existence
+
+== Graph catalog: droping a graph
+
+== Getting started with algorithms
+
+== Algorithm syntax
+
+// Be sure to include stream / write / memory estimation / stats / mutate
+
+== Centrality measurements via PageRank
+
+== PageRank: stream mode
+
+== PageRank: write mode
+
+== PageRank: exercise
+
+// Does the movies guide have exercises?
+
+== PageRank exercise solutions
+
+== Clustering (community detection) via Louvain modularity
+
+== Node similarity
 
 
 
