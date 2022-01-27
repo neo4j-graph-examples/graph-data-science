@@ -96,6 +96,10 @@ MERGE (r:Region {name: a.region})
 MERGE (a)-[:IN_REGION]->(r);
 
 MATCH (a:Airport)
+MERGE (c:City {name: a.city})
+MERGE (c)-[:IN_REGION]->(r);
+
+MATCH (a:Airport)
 MATCH (c:Country {code: a.country})
 MERGE (a)-[:IN_COUNTRY]->(c);
 
