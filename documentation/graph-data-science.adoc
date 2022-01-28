@@ -193,6 +193,8 @@ Graph projections can be created through one of two methods: native projections 
 
 == Centrality measurements via PageRank
 
+== PageRank example graph
+
 == PageRank: stream mode
 
 == PageRank: write mode
@@ -205,7 +207,39 @@ Graph projections can be created through one of two methods: native projections 
 
 == Clustering (community detection) via Louvain modularity
 
+== Louvain example graph
+
+== Louvain: examples
+
+== Louvain: weighted graph
+
+== Louvain: intermediate communities
+
+== Louvain exercise
+
+== Louvain exercise solution
+
 == Node similarity
+
+== Node similarity: example graph
+
+== Node similarity: simple run
+
+== Node similarity: similarity cutoff
+
+== Node similarity: topN
+
+== Node similarity: topK
+
+== Node similarity exercise
+
+// bottomN and bottomK
+
+==  Node similarity exercise solution
+
+== The end
+
+
 
 
 
