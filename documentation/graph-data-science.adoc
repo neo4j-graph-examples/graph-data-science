@@ -165,7 +165,7 @@ RETURN min(num) AS min, max(num) AS max, avg(num) AS avg_routes, stdev(num) AS s
 
 == Graph creation
 
-The first step in executing any GDS algorithm is to create a graph projection (also referred to as an in-memory graph).  Graph projections are subsets of our full graph to be used in calculating results through the GDS algorithms.  Their use enables GDS to run quickly and efficiently through the calculations.  In the creation of these projections, the nature of the graph elements may change in the following ways:
+The first step in executing any GDS algorithm is to create a graph projection (also referred to as an in-memory graph) under a user-defined name.  Graph projections are subsets of our full graph to be used in calculating results through the GDS algorithms.  Their use enables GDS to run quickly and efficiently through the calculations.  In the creation of these projections, the nature of the graph elements may change in the following ways:
 
 * Nodes and relationship types might be renamed
 * Several node or relationship types might be merged
@@ -178,6 +178,37 @@ The first step in executing any GDS algorithm is to create a graph projection (a
 Graph projections can be created through one of two methods: native projections and Cypher projections.  These graph projections are then stored in the graph catalog under a user-defined name.
 
 == Graph catalog: creating a graph with native projections
+
+Native projections provide the fastest performance for creating an graph projection.  They take 3 mandatory arguments: `graphName`, 'nodeProjection', and 'relationshipProjection'.  There are also optional `configuration` parameters that can be used to further configure the graph.  In general, the syntax for creating a native projection is:
+
+[source,cypher]
+----
+CALL gds.graph.project(
+    graphName: String,
+    nodeProjection: String or List or Map,
+    relationshipProjection: String or List or Map,
+    configuration: Map
+)
+YIELD
+  graphName: String,
+  nodeProjection: Map,
+  nodeCount: Integer,
+  relationshipProjection: Map,
+  relationshipCount: Integer,
+  projectMillis: Integer,
+  createMillis: Integer
+----
+
+For example, in our dataset, we could create a graph projection of the routes between all airports as:
+
+[source,cypher]
+----
+UPDATE
+----
+
+== Example of a native projection
+
+
 
 == Graph catalog: creating a graph with Cypher projections
 
