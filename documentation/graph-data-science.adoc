@@ -190,10 +190,26 @@ It is helpful to know which graphs are in the catalog and their properties.  To 
 CALL gds.graph.list()
 ----
 
-You can also check this for an individual 
+You can also check this for an individual graph using:
+
+[source,cypher]
+----
+CALL gds.graph.list('graph-name')
+----
+
+where `graph-name` is the name of your projected, in-memory graph.
 
 
-== Graph catalog: droping a graph
+== Graph catalog: dropping a graph
+
+Once you are done using a projected graph, it is beneficial to drop it from the catalog in order to free up memory space.  This can be achieved by using:
+
+[source,cypher]
+----
+CALL gds.graph.drop('graph-name')
+----
+
+where `graph-name` is the name of your projected, in-memory graph.
 
 == Getting started with algorithms
 
