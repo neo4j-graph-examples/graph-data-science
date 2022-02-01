@@ -434,21 +434,120 @@ As before, should we wish to write these results as node properties, we can use 
 
 == Node similarity
 
+As with the previous algorithm categories of centrality and community detection, there are a variety of ways to calculate node similarity.  In general, node similarity is computed between pairs of nodes through different vector-based metrics.  In this section we will use a common approach to calculating pair-wise similarity that uses the link:https://en.wikipedia.org/wiki/Jaccard_index[Jaccard similarity score^].  
+
+To implement this, GDS starts by considering all source nodes in the graph that have an outgoing relationship.  So suppose there is a relationship between node `n` and node `m`.  For each `(n, m)` pair, the algorithm obtains the set of all target nodes for both `n` and `m` and uses the sets of those to calculate the Jaccard similarity, which is the GDS node similarity score between the two nodes.
+
+It should be noted that running node similarity scales quadratically with the number of nodes in the graph.  To help minimize the run time, particularly on larger graphs, it is possible to set cutoffs on the degree of the nodes (the number of incoming or outgoing relationships) as well as a similarity cutoff.  This then reduces the number of pair-wise combinations that must be evaluated.  The result limits can either be set on the whole graph (referred to as `N` in the documentation) or to the results per node (referred to as `K` in the documentation).
+
 == Node similarity: example graph
 
-== Node similarity: simple run
+We will utilize the `routes` graph projection that we wrote before.  If you need to recreate that graph projection, you can do so with the following:
 
-== Node similarity: similarity cutoff
+[source,cypher]
+----
+CALL gds.graph.project(
+    'routes',
+    'Airport',
+    'HAS_ROUTE'
+)
+YIELD
+    graphName, nodeProjection, nodeCount, relationshipProjection, relationshipCount
+----
 
-== Node similarity: topN
+== Node similarity: simple example
 
-== Node similarity: topK
+Let's look at an example of a very basic node similarity calculation:
 
-== Node similarity exercise
+[source,cypher]
+----
+CALL gds.nodeSimilarity.stream('routes')
+YIELD node1, node2, similarity
+RETURN 
+    gds.util.asNode(node1).city AS City1, 
+    COLLECT(gds.util.asNode(node2).city) AS City2, 
+    COLLECT(similarity) AS similarity
+ORDER BY City1
+----
 
-// bottomN and bottomK
+We see that the algorithm has returned the top 10 most similar nodes for each airport node in the graph.  What has happened here behind the scenes is that GDS has limited, on a per node basis (`K`), the number of results being returned, established by the configuration parameter `topK`, which has a default value of 10.  We could restrict this further by altering the above query as:app-name: 
 
-==  Node similarity exercise solution
+[source,cypher]
+----
+CALL gds.nodeSimilarity.stream(
+    'routes',
+    {
+        topK: 3
+    }
+)
+YIELD node1, node2, similarity
+RETURN 
+    gds.util.asNode(node1).city AS City1, 
+    COLLECT(gds.util.asNode(node2).city) AS City2, 
+    COLLECT(similarity) AS similarity
+ORDER BY City1
+----
+
+== Node similarity: topN and bottomN
+
+As previously stated, we can limit the number of similarity scores across all nodes by specifying `topN`, the largest overall similarity scores in the graph.  As example of this would be:author: 
+
+[source,cypher]
+----
+CALL gds.nodeSimilarity.stream(
+    'routes',
+    {
+        topK: 1,
+        topN: 10
+    }
+)
+YIELD node1, node2, similarity
+RETURN 
+    gds.util.asNode(node1).city AS City1, 
+    COLLECT(gds.util.asNode(node2).city) AS City2, 
+    COLLECT(similarity) AS similarity
+ORDER BY City1
+----
+
+In this case, we have calculated the airport with the highest similarity for each node (`topK: 1`) and then returned the 10 airport pairs with the highest similarity across the whole graph (`topN: 10`).
+
+== Node similarity: degree and similarity cutoff
+
+Other ways of limiting the number of calculations done include by providing a minimum value of degree for a node to be considered in the overall calculations, such as below where we require a minimum degree of 100 (i.e. a minimum of 100 flights coming in to and out of an airport):
+
+[source,cypher]
+----
+CALL gds.nodeSimilarity.stream(
+    'routes',
+    {
+        degreeCutoff: 100
+    }
+)
+YIELD node1, node2, similarity
+RETURN 
+    gds.util.asNode(node1).city AS City1, 
+    COLLECT(gds.util.asNode(node2).city) AS City2, 
+    COLLECT(similarity) AS similarity
+ORDER BY City1
+----
+
+We can also set a minimum similarity score:
+
+[source,cypher]
+----
+CALL gds.nodeSimilarity.stream(
+    'routes',
+    {
+        degreeCutoff: 25
+    }
+)
+YIELD node1, node2, similarity
+RETURN 
+    gds.util.asNode(node1).city AS City1, 
+    COLLECT(gds.util.asNode(node2).city) AS City2, 
+    COLLECT(similarity) AS similarity
+ORDER BY City1
+----
 
 == The end
 
