@@ -1,6 +1,11 @@
 = Graph Algorithms
 :icons: font
 
+// To Do
+//
+// - Replace doc links from the preview of 2.0 to current once they go live
+// - Update all queries in /code
+
 == Neo4j Graph Data Science
 
 The Neo4j Graph Data Science (GDS) library contains a set of graph algorithms, exposed through Cypher procedures.  Graph algorithms provide insights into the graph structure and elements, for example, by computing centrality, similarity scores, and detecting communities.  The GDS library is divided into three tiers of maturity: product, beta, and alpha.
@@ -217,6 +222,45 @@ YIELD
 This is a very simple graph projection, but it is possible to add multiple node types and relationship types as well as properties for each of the nodes and relationships.  To see more examples of creating native graph projections, consult the link:https://neo4j.com/docs/graph-data-science/2.0-preview/graph-project/#graph-project-examples[GDS documentation^].
 
 == Graph catalog: creating a graph with Cypher projections
+
+There are times where native projections are not expressive enough to capture exactly what you need in the graph.  In these cases, Cypher can be used to create the graph projection.  The overall syntax for this is:
+
+[source,cypher]
+----
+CALL gds.graph.project.cypher(
+    graphName: String,
+    nodeQuery: String,
+    relationshipQuery: String,
+    configuration: Map
+) YIELD
+    graphName: String,
+    nodeQuery: String,
+    nodeCount: Integer,
+    relationshipQuery: String,
+    relationshipCount: Integer,
+    projectMillis: Integer,
+    createMillis: Integer,
+----
+
+The difference between this and the native projection is that the node and relationships projections are replaced with Cypher statements.
+
+== Example of a Cypher projection
+
+[source,cypher]
+----
+CALL gds.graph.project.cypher(
+    'routes_cypher',
+    'MATCH (a:Airport) RETURN id(a) AS id',
+    'MATCH (a1:Airport)-[:HAS_ROUTE]->(a2:Airport) RETURN id(a1) AS source, id(a2) AS target'
+)
+YIELD
+    graphName, nodeProjection, nodeCount, relationshipProjection, relationshipCount
+----
+
+We can see here that Cypher projections work with the internal `id` of each node, which is returned in the node query and then used in the relationship query.  Note that GDS requires the specification of the `source` and `target` nodes in the relationship query.
+
+By using Cypher projections, we can specify many things, such as requirements on the node and relationship properties and more sophisticated relationships.  To see more examples of creating Cypher graph projections, consult the link:https://neo4j.com/docs/graph-data-science/2.0-preview/graph-project-cypher/#graph-project-examples[GDS documentation^].
+
 
 == Graph catalog: listing and existence
 
