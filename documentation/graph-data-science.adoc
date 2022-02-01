@@ -199,16 +199,22 @@ YIELD
   createMillis: Integer
 ----
 
-For example, in our dataset, we could create a graph projection of the routes between all airports as:
+== Example of a native projection
+
+In our dataset, we could create a graph projection of the routes between all airports as:
 
 [source,cypher]
 ----
-UPDATE
+CALL gds.graph.project(
+    'routes',
+    'Airport',
+    'HAS_ROUTE'
+)
+YIELD
+    graphName, nodeProjection, nodeCount, relationshipProjection, relationshipCount
 ----
 
-== Example of a native projection
-
-
+This is a very simple graph projection, but it is possible to add multiple node types and relationship types as well as properties for each of the nodes and relationships.  To see more examples of creating native graph projections, consult the link:https://neo4j.com/docs/graph-data-science/2.0-preview/graph-project/#graph-project-examples[GDS documentation^].
 
 == Graph catalog: creating a graph with Cypher projections
 
