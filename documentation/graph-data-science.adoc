@@ -319,19 +319,77 @@ CALL gds[.<tier>].<algorithm>.<execution-mode>[.<estimate>](
 
 where items in `[]` are optional.  From the above, `<tier>`, if present, indicates whether the algorithm is in the alpha or beta tier (production-tiered algorithms do not use this), `<algorithm>` is the name of the algorithm, `<execution-mode>` is one of the 4 execution modes, and `<estimate>` is an optional flag indicating that the estimate of memory usage should be returned.
 
+== Interpretting results of an algorithm
+
+GDS uses an internal `id` space for its calculations, which does not correspond to recognizable information of the graph itself.  As such, when we return results from an algorithm, it is returned in the `id` space.  We generally want to convert this to something coresponding to our actual graph.  To do so, we use the built in method:
+
+`gds.util.asNode(nodeId).property_name AS property_name`
+
+which will extract the desired `property_name` from the graph projection based on the `id` space.  We will see examples of this shortly.
+
 == Centrality measurements via PageRank
+
+image::https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/PageRanks-Example.svg/758px-PageRanks-Example.svg.png[float="right", width="300"]
+
+There are many ways to determine the centrality or importance of a node, but one of the most popular is through the calculation of PageRank.  PageRank measures the transitive (or directional) influence of a node.  The benefit to this approach is that it uses the influence of a node's neighbors to determine the influence of the target node.  The general idea is that a node that has more incoming and more influential links from other nodes is considered to be more important (i.e. a higher PageRank).
+
+The algorithm itself is an iterative algorithm.  The number of iterations can be set as a configuration parameter in GDS, however the algorithm can terminate if the node scores converge based on a specified tolerance value, which is also configurable in GDS.
+
+PageRank can be run on a basic graph, such as what we are using here, or with a weighted graph.  To see how to run it on a weighted graph, please explore the link:https://neo4j.com/docs/graph-data-science/2.0-preview/algorithms/page-rank/#algorithms-page-rank-examples-weighted[GDS documentation^].
 
 == PageRank example graph
 
+We will utilize the `routes` graph projection that we wrote before.  If you need to recreate that graph projection, you can do so with the following:
+
+[source,cypher]
+----
+CALL gds.graph.project(
+    'routes',
+    'Airport',
+    'HAS_ROUTE'
+)
+YIELD
+    graphName, nodeProjection, nodeCount, relationshipProjection, relationshipCount
+----
+
 == PageRank: stream mode
+
+As previously stated, stream mode will output the results of the calculation without altering the database or the graph projection.  To do so, we use:
+
+[source,cypher]
+----
+CALL gds.pageRank.stream('routes')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).iata AS iata, score
+ORDER BY score DESC, iata ASC
+----
+
+Here we see that we have returned the results of the calculation, mapped in the internal `id` space, as well as the PageRank score.  We then extract the `iata` code of the airport from the `id` space using `gds.util.asNode()`.  We can see that the output is the airport codes, ordered by decreasing PageRank score.  The airports with the highest PageRank scores are very popular airports around the globe, as we would expect.
 
 == PageRank: write mode
 
-== PageRank: exercise
+If we want to attach the results of the PageRank calculation as a node property to each node in the graph, we would use `.write()` as follows:
 
-// Does the movies guide have exercises?
+[source,cypher]
+----
+CALL gds.pageRank.write('routes', 
+    {
+        writeProperty: 'pagerank'
+    }
+)
+YIELD nodePropertiesWritten, ranIterations
+----
 
-== PageRank exercise solutions
+We can then confirm the results using:
+
+[source,cypher]
+----
+MATCH (a:Airport)
+RETURN a.iata, a.pagerank
+ORDER BY a.pagerank DESC, a.iata ASC
+----
+
+As we can see, the results are identical to the streamed version.
 
 == Clustering (community detection) via Louvain modularity
 
