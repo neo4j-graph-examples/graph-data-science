@@ -5,6 +5,7 @@
 //
 // - Replace doc links from the preview of 2.0 to current once they go live
 // - Update all queries in /code
+// - Something about what mutate is for, an example
 
 == Neo4j Graph Data Science
 
@@ -391,19 +392,45 @@ ORDER BY a.pagerank DESC, a.iata ASC
 
 As we can see, the results are identical to the streamed version.
 
-== Clustering (community detection) via Louvain modularity
+== Community (cluster) detection via Louvain Modularity
+
+As with centrality measurements, there are many ways to identify communities within a graph.  We will cover the popular Louvain Modularity method in this section.  This algorithm finds clusters within a graph by measuring the density of nodes.  This is quantified through the _modularity_, which is a comparison of the density of connections within a cluster to an average or random sample.  So the higher the modularity, the more dense the cluster is.  The Louvain method thus attempts to maximize the modularity across the graph through a recursive approach.  As with PageRank, in GDS the user can specify a maximum number of iterations as well as a tolerance factor for early termination.  Additionally, the algorithm is able to return the intermediate community assignments along the way to convergence.  
 
 == Louvain example graph
 
-== Louvain: examples
+We will utilize the `routes` graph projection that we wrote before.  If you need to recreate that graph projection, you can do so with the following:
 
-== Louvain: weighted graph
+[source,cypher]
+----
+CALL gds.graph.project(
+    'routes',
+    'Airport',
+    'HAS_ROUTE'
+)
+YIELD
+    graphName, nodeProjection, nodeCount, relationshipProjection, relationshipCount
+----
 
-== Louvain: intermediate communities
+== Louvain: example
 
-== Louvain exercise
+Using the stream mode, let's explore the results of the algorithm.  We will use the following query:
 
-== Louvain exercise solution
+[source,cypher]
+----
+CALL gds.louvain.stream('routes')
+YIELD nodeId, communityId
+RETURN 
+	communityId,
+    SIZE(COLLECT(gds.util.asNode(nodeId).iata)) AS number_of_airports,
+	COLLECT(gds.util.asNode(nodeId).city) AS city
+ORDER BY number_of_airports DESC, communityId;
+----
+
+In this case we have obtained the community IDs and counted the number of airports, by `iata` code, in each community using the combination of `COLLECT`, which creates a list of the results, and `SIZE`, which returns the size of a list.  We also return a list of the cities in each community.  
+
+Exploring this list, we can see that the largest community corresponds to airports in the United States, the second largest to airports in Europe, and so on.  At surface inspection, these results make sense in that the airports in the graph appear to be clustered based on continent.
+
+As before, should we wish to write these results as node properties, we can use `gds.louvain.write()`.
 
 == Node similarity
 
@@ -424,6 +451,8 @@ As we can see, the results are identical to the streamed version.
 ==  Node similarity exercise solution
 
 == The end
+
+// We have not shown anything on a weighted graph...make a comment on this 
 
 
 
