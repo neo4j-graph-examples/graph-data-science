@@ -6,6 +6,8 @@
 // - Replace doc links from the preview of 2.0 to current once they go live
 // - Update all queries in /code
 // - Something about what mutate is for, an example
+// - Something about weighted graphs?
+// - Something about the top part of the docs for each algo saying what it works on
 
 == Neo4j Graph Data Science
 
@@ -551,7 +553,7 @@ ORDER BY City1
 
 == The end
 
-// We have not shown anything on a weighted graph...make a comment on this 
+Congratulations!  You have taken your first steps into using the Neo4j Graph Data Science (GDS) library!  This tutorial just looked at the basics of how to run graph algorithms and demonstrated the approach on a very limited number of basic algorithms.  To learn more about what other algorithms exists as well as details for all of their configurations, please see link:https://neo4j.com/docs/graph-data-science/current/[the GDS documentation^].
 
 
 
