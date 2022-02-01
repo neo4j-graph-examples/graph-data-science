@@ -50,7 +50,7 @@ CREATE CONSTRAINT countries ON (c:Country) ASSERT c.code IS UNIQUE;
 CREATE CONSTRAINT continents ON (c:Continent) ASSERT c.code IS UNIQUE;
 ----
 
-Next we will import the Airport, Country, and Continent nodes and set their properties.
+Next we will import the Airport, Country, and Continent nodes and set their properties as well as the `IN_CITY`, `IN_COUNTRY`, `IN_REGION` and `ON_CONTINENT` relationships.
 
 *_Redo this section such that we do not populate airport nodes with properties that then get used for nodes_*
 
@@ -61,35 +61,32 @@ WITH
     AS url
 LOAD CSV WITH HEADERS FROM url AS row
 MERGE (a:Airport {iata: row.iata})
+MERGE (ci:City {name: row.city})
+MERGE (r:Region {name: row.region})
+MERGE (co:Country {code: row.country})
+MERGE (con:Continent {code: row.continent})
+MERGE (a)-[:IN_CITY]->(ci)
+MERGE (a)-[:IN_COUNTRY]->(co)
+MERGE (ci)-[:IN_COUNTRY]->(co)
+MERGE (r)-[:IN_COUNTRY]->(co)
+MERGE (a)-[:IN_REGION]->(r)
+MERGE (ci)-[:IN_REGION]->(r)
+MERGE (a)-[:ON_CONTINENT]->(con)
+MERGE (ci)-[:ON_CONTINENT]->(con)
+MERGE (co)-[:ON_CONTINENT]->(con)
+MERGE (r)-[:ON_CONTINENT]->(con)
 SET a.id = row.id,
     a.icao = row.icao,
     a.city = row.city,
     a.descr = row.descr,
-    a.region = row.region,
     a.runways = toInteger(row.runways),
     a.longest = toInteger(row.longest),
     a.altitude = toInteger(row.altitude),
-    a.country = row.country,
-    a.continent = row.continent,
     a.lat = toFloat(row.lat),
     a.lon = toFloat(row.lon);
-
-WITH 
-    'https://raw.githubusercontent.com/cj2001/bite_sized_data_science/main/data/country-node-list.csv'
-    AS url
-LOAD CSV WITH HEADERS FROM url AS row
-MERGE (c:Country {code: row.code})
-SET c.descr = row.descr;
-
-WITH 
-    'https://raw.githubusercontent.com/cj2001/bite_sized_data_science/main/data/continent-node-list.csv'
-    AS url
-LOAD CSV WITH HEADERS FROM url AS row
-MERGE (c:Continent {code: row.code})
-SET c.descr = row.descr;
 ----
 
-Finally, we will import all of our relationships.  Note that some of the relationships only exist in the Airport nodes list (in the CSV file).  We will use these to artifically create the City and Region nodes as well as the relationships between them and the Airport, Country, and Continent nodes.  Note that the `(Airport)-[:HAS_ROUTE]-(Airport)` relationship has a relationship property of `distance`, indicating the distance between each of the airports.  We will later use this to create weighted graphs.
+Finally, we will import the `(Airport)-[:HAS_ROUTE]-(Airport)` relationship.  Note that relationship has a property of `distance`, indicating the distance between each of the airports.  We will later use this to create weighted graphs.
 
 [source,cypher]
 ----
