@@ -17,16 +17,16 @@ public class Example {
     try (Session session = driver.session(SessionConfig.forDatabase("neo4j"))) {
 
       String cypherQuery =
-        "MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)\n" +
-        "  RETURN other.name as person";
+        "MATCH (a:Airport{iata:$iata})-[r:HAS_ROUTE]->(other)\n" +
+        "  RETURN other.iata AS destination";
 
       var result = session.readTransaction(
         tx -> tx.run(cypherQuery, 
-                parameters("name","Jaime Lannister"))
+                parameters("iata","DEN"))
             .list());
 
       for (Record record : result) {
-        System.out.println(record.get("person").asString());
+        System.out.println(record.get("destination").asString());
       }
     }
     driver.close();
