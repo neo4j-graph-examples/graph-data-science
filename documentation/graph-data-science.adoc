@@ -3,10 +3,13 @@
 
 // To Do
 //
-// - Replace doc links from the preview of 2.0 to current once they go live
 // - Update all queries in /code
 // - Something about what mutate is for, an example6
-// - Something about the top part of the docs for each algo saying what it works on
+
+// Notes
+//
+// - Many doc links will not work yet, particularly on 2.0-specific content.  These should work once the
+//   2.0 preview docs go live.
 
 == Neo4j Graph Data Science
 
@@ -218,7 +221,7 @@ YIELD
     graphName, nodeProjection, nodeCount, relationshipProjection, relationshipCount
 ----
 
-This is a very simple graph projection, but it is possible to add multiple node types and relationship types as well as properties for each of the nodes and relationships.  To see more examples of creating native graph projections, consult the link:https://neo4j.com/docs/graph-data-science/2.0-preview/graph-project/#graph-project-examples[GDS documentation^].
+This is a very simple graph projection, but it is possible to add multiple node types and relationship types as well as properties for each of the nodes and relationships.  To see more examples of creating native graph projections, consult the link:https://neo4j.com/docs/graph-data-science/current/graph-project/#graph-project-examples[GDS documentation^].
 
 == Graph catalog: creating a graph with Cypher projections
 
@@ -258,7 +261,7 @@ YIELD
 
 We can see here that Cypher projections work with the internal `id` of each node, which is returned in the node query and then used in the relationship query.  Note that GDS requires the specification of the `source` and `target` nodes in the relationship query.
 
-By using Cypher projections, we can specify many things, such as requirements on the node and relationship properties and more sophisticated relationships.  To see more examples of creating Cypher graph projections, consult the link:https://neo4j.com/docs/graph-data-science/2.0-preview/graph-project-cypher/#graph-project-examples[GDS documentation^].
+By using Cypher projections, we can specify many things, such as requirements on the node and relationship properties and more sophisticated relationships.  To see more examples of creating Cypher graph projections, consult the link:https://neo4j.com/docs/graph-data-science/current/graph-project-cypher/#graph-project-examples[GDS documentation^].
 
 
 == Graph catalog: listing and existence
@@ -338,7 +341,7 @@ There are many ways to determine the centrality or importance of a node, but one
 
 The algorithm itself is an iterative algorithm.  The number of iterations can be set as a configuration parameter in GDS, however the algorithm can terminate if the node scores converge based on a specified tolerance value, which is also configurable in GDS.
 
-PageRank can be run on a basic graph, such as what we are using here, or with a weighted graph.  To see how to run it on a weighted graph, please explore the link:https://neo4j.com/docs/graph-data-science/2.0-preview/algorithms/page-rank/#algorithms-page-rank-examples-weighted[GDS documentation^].
+PageRank can be run on a basic graph, such as what we are using here, or with a weighted graph.  To see how to run it on a weighted graph, please explore the link:https://neo4j.com/docs/graph-data-science/current/algorithms/page-rank/#algorithms-page-rank-examples-weighted[GDS documentation^].
 
 == PageRank example graph
 
