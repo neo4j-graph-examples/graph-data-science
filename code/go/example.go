@@ -30,17 +30,17 @@ func runQuery(uri, database, username, password string) (result []string, err er
 	results, err := session.ReadTransaction(func(transaction neo4j.Transaction) (interface{}, error) {
 		result, err := transaction.Run(
 			`
-			MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)
-			  RETURN other.name as person
+			MATCH (a:Airport{iata:$iata})-[r:HAS_ROUTE]->(other)
+  				RETURN other.iata as destination
 			`, map[string]interface{}{
-				"name": "Jaime Lannister",
+				"iata": "DEN",
 			})
 		if err != nil {
 			return nil, err
 		}
 		var arr []string
 		for result.Next() {
-			value, found := result.Record().Get("person")
+			value, found := result.Record().Get("destination")
 			if found {
 				arr = append(arr, value.(string))
 			}
