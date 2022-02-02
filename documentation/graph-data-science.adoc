@@ -249,7 +249,7 @@ The difference between this and the native projection is that the node and relat
 [source,cypher]
 ----
 CALL gds.graph.project.cypher(
-    'routes_cypher',
+    'routes-cypher',
     'MATCH (a:Airport) RETURN id(a) AS id',
     'MATCH (a1:Airport)-[:HAS_ROUTE]->(a2:Airport) RETURN id(a1) AS source, id(a2) AS target'
 )
@@ -544,6 +544,63 @@ RETURN
     COLLECT(gds.util.asNode(node2).city) AS City2, 
     COLLECT(similarity) AS similarity
 ORDER BY City1
+----
+
+== Path Finding
+
+Like all of the other algorithm categories we have explored, there are several approaches possible for path finding.  Generally speaking, the purpose of path finding is to find the shortest path between two or more nodes.  In this section we will use the common link:https://en.wikipedia.org/wiki/Dijkstra's_algorithm[Dijkstra's algorithm^] to find the shortest path between two nodes.  Unlike the previous examples, we will need a weighted graph projection because Dijkstra's algorithm begins by finding the lowest weighted relationship from the source nodes to all nodes that are directly connected to it.  It then performs the same calculation from that node to all nodes connected to it, and so on, always choosing the relationship with the lowest weight, until the target node is reached.
+
+== Creating a weighted graph projection
+
+In our previous examples we did not consider the distance between the two airports.  We need to begin by creating a graph projection using the distance as the weight of the relationship between two nodes.  In order to create a graph identical to our previous one with the simple addition of relationship weights, we would use:
+
+[source,cypher]
+----
+CALL gds.graph.project(
+    'routes',
+    'Airport',
+    'HAS_ROUTE',
+        {
+            relationshipProperties: 'distance'
+        }
+)
+----
+
+== Dijkstra's algorithm: calculating the shortest path given a source node
+
+Let's calculate the shortest distance from the Denver International Airport (`DEN`) to the Malé International Airport using our weighted graph projection:
+
+[source,cypher]
+----
+MATCH (source:Airport {iata: 'DEN'}), (target:Airport {iata: 'MLE'})
+CALL gds.shortestPath.dijkstra.stream('routes-weighted', {
+    sourceNode: source,
+    targetNode: target,
+    relationshipWeightProperty: 'distance'
+})
+YIELD index, sourceNode, targetNode, totalCost, nodeIds, costs, path
+RETURN
+    index,
+    gds.util.asNode(sourceNode).iata AS sourceNodeName,
+    gds.util.asNode(targetNode).iata AS targetNodeName,
+    totalCost,
+    [nodeId IN nodeIds | gds.util.asNode(nodeId).iata] AS nodeNames,
+    costs,
+    nodes(path) as path
+ORDER BY index
+----
+
+We can see in the above query that we are specifying a source and target node and using the `relationshipWeightProperty` of `distance`.  From there, many things are returned, including the total cost (similar to distance, usually representing the straight-line distance between two nodes while ignoring other potential sources of delay such as time spent taxiing, etc.), and a listing of the airports along this path.  In this case, we see that the shortest path is 4 hops long -- perhaps not practical, but the total distance is minimized.
+
+== Cleaning up
+
+To free up memory, do not forget to drop your unused graph projections!
+
+[source,cypher]
+----
+CALL gds.graph.drop('routes');
+CALL gds.graph.drop('routes-cypher');
+CALL gds.graph.drop('routes-weighted');
 ----
 
 == The end
