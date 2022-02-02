@@ -5,8 +5,7 @@
 //
 // - Replace doc links from the preview of 2.0 to current once they go live
 // - Update all queries in /code
-// - Something about what mutate is for, an example
-// - Something about weighted graphs?
+// - Something about what mutate is for, an example6
 // - Something about the top part of the docs for each algo saying what it works on
 
 == Neo4j Graph Data Science
@@ -291,6 +290,12 @@ CALL gds.graph.drop('graph-name')
 ----
 
 where `graph-name` is the name of your projected, in-memory graph.
+
+== Identifying appropriate algorithms for your graph
+
+*_Insert image example of API requirements here_*
+
+Not all GDS algorithms will run on every type of graph projection.  Some algorithms prefer homogeneous to heterogeneous graphs.  Others will only work properly on undirected graphs.  Some will not work with relationships weights.  You should always consult the link:https://neo4j.com/docs/graph-data-science/current/[API docs^] for your chosen algorithm to verify what is required for your graph.
 
 == Algorithm syntax: available execution modes
 
