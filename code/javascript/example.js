@@ -7,18 +7,18 @@ const driver = neo4j.driver('neo4j://<HOST>:<BOLTPORT>',
 
 const query =
   `
-  MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)
-    RETURN other.name as person
+  MATCH (a:Airport{iata:$iata})-[r:HAS_ROUTE]->(other)
+    RETURN other.iata as destination
   `;
 
-const params = {"name": "Jaime Lannister"};
+const params = {"iata": "DEN"};
 
 const session = driver.session({database:"neo4j"});
 
 session.run(query, params)
   .then((result) => {
     result.records.forEach((record) => {
-        console.log(record.get('person'));
+        console.log(record.get('destination'));
     });
     session.close();
     driver.close();
