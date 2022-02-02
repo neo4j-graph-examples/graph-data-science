@@ -8,15 +8,15 @@ driver = GraphDatabase.driver(
   auth=basic_auth("<USERNAME>", "<PASSWORD>"))
 
 cypher_query = '''
-MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)
-  RETURN other.name as person
+MATCH (a:Airport{iata:$iata})-[r:HAS_ROUTE]->(other)
+  RETURN other.iata as destination
 '''
 
 with driver.session(database="neo4j") as session:
   results = session.read_transaction(
     lambda tx: tx.run(cypher_query,
-                      name="Jaime Lannister").data())
+                      iata="DEN").data())
   for record in results:
-    print(record['person'])
+    print(record['destination'])
 
 driver.close()
