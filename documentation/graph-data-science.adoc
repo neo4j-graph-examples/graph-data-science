@@ -247,7 +247,7 @@ CALL gds.graph.project.cypher(
     relationshipQuery: String,
     relationshipCount: Integer,
     projectMillis: Integer,
-    createMillis: Integer,
+    createMillis: Integer
 ----
 
 The difference between this and the native projection is that the node and relationships projections are replaced with Cypher statements.
