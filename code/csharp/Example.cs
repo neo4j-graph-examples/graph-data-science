@@ -18,20 +18,20 @@ namespace dotnet {
 
     var cypherQuery =
       @"
-      MATCH (c:Person{name:$name})-[r:INTERACTS]->(other)
-        RETURN other.name as person
+      MATCH (a:Airport{iata:$iata})-[r:HAS_ROUTE]->(other)
+        RETURN other.iata as destination
       ";
 
     var session = driver.AsyncSession(o => o.WithDatabase("neo4j"));
     var result = await session.ReadTransactionAsync(async tx => {
       var r = await tx.RunAsync(cypherQuery, 
-              new { name="Jaime Lannister"});
+              new { iata="DEN"});
       return await r.ToListAsync();
     });
 
     await session?.CloseAsync();
     foreach (var row in result)
-      Console.WriteLine(row["person"].As<string>());
+      Console.WriteLine(row["destination"].As<string>());
 	  
     }
   }
