@@ -317,6 +317,10 @@ Once you have created a named graph projection, there are 4 different execution 
 
 In addition to the above for modes, it is possible to use `estimate` to obtain an estimation of how much memory a given algorithm will use.
 
+=== A special note on `mutate` mode
+
+When it comes time for feature engineering, you will likely want to include some quantities calculated by GDS into your graph projection.  This is what `mutate` is for.  I does not change the database itself, but writes the results of the calculation to each node within the projected graph for future calculations.  It is beyond the scope of this guide, but is covered in more detail in link:https://neo4j.com/docs/graph-data-science/current/common-usage/running-algos/#running-algos-mutate[the API docs^].
+
 == Algorithm syntax: general algorithm use
 
 Utilizing one of the 4 different execution modes, the general way to call a graph algorithm is as follows:
