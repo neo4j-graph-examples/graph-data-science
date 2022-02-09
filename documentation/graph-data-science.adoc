@@ -3,8 +3,6 @@
 
 // To Do
 //
-// - Update all queries in /code
-// - Something about what mutate is for, an example6
 
 // Notes
 //
