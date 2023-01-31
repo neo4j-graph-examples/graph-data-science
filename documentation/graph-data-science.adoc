@@ -61,11 +61,11 @@ Now, let's import the data.
 .Create unique constraints on the names of the nodes `:Location`, `:Region`, `:Battle`, `:Person`, and `:House`. This ensures your data integrity and improves performance.
 [source, cypher]
 ----
-CREATE CONSTRAINT ON (n:Location) ASSERT n.name IS UNIQUE;
-CREATE CONSTRAINT ON (n:Region) ASSERT n.name IS UNIQUE;
-CREATE CONSTRAINT ON (n:Battle) ASSERT n.name IS UNIQUE;
-CREATE CONSTRAINT ON (n:Person) ASSERT n.name IS UNIQUE;
-CREATE CONSTRAINT ON (n:House) ASSERT n.name IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:Location) REQUIRE (n.name) IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:Region) REQUIRE (n.name) IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:Battle) REQUIRE (n.name) IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:Person) REQUIRE (n.name) IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:House) REQUIRE (n.name) IS UNIQUE;
 ----
 
 .Then, ingest the data.
@@ -411,7 +411,7 @@ FOREACH (d IN dead_spouse |
   SET spouse:Dead
 );
 
-MATCH (p:Person) where exists (p.death_year)
+MATCH (p:Person) where p.death_year is not null
 SET p:Dead;
 
 MATCH (p:Person)-[:DEFENDER_KING|ATTACKER_KING]-()
@@ -559,7 +559,7 @@ To estimate the required memory for a subset of your graph, for example, the `Pe
 
 [source, cypher]
 ----
-CALL gds.graph.create.estimate('Person', 'INTERACTS') YIELD nodeCount, relationshipCount, requiredMemory
+CALL gds.graph.project.estimate('Person', 'INTERACTS') YIELD nodeCount, relationshipCount, requiredMemory
 ----
 
 The result shows that the example graph is small.
@@ -567,7 +567,7 @@ So, you can create your projected graph and name it, for example, `got-interacti
 
 [source, cypher]
 ----
-CALL gds.graph.create('got-interactions', 'Person', 'INTERACTS')
+CALL gds.graph.project('got-interactions', 'Person', 'INTERACTS')
 ----
 
 == Estimate memory usage: algorithms
@@ -576,7 +576,7 @@ To estimate the memory needed to execute an algorithm on your `got-interactions`
 
 [source, cypher]
 ----
-CALL gds.pageRank.stream.estimate('got-interactions') YIELD requiredMemory
+CALL gds.pageRank.stream.estimate('got-interactions', {}) YIELD requiredMemory
 ----
 
 This estimation considers only the algorithm execution, as the graph is already in-memory.
@@ -588,29 +588,17 @@ The procedure returns a tree view and a map view of all the "components" with th
 
 [source, cypher]
 ----
-CALL gds.pageRank.stream.estimate('got-interactions')
+CALL gds.pageRank.stream.estimate('got-interactions', {})
 ----
 
 As you see, the more detailed views contain estimates on the individual compute steps and the result data structures.
 
-You can also estimate the memory usage for graph creation and algorithm execution at the same time by using the so-called _implicit graph creation_.
-This way, the configuration for the graph creation is inlined within the algorithm procedure call.
-
-[source, cypher]
-----
-CALL gds.pageRank.stream.estimate({nodeProjection: 'Person', relationshipProjection: 'INTERACTS'})
-----
-
-The result shows an increased memory estimate, explained by the memory consumed by the graph creation.
 
 Now, you can filter the result to the top level components: graph and algorithm.
 
 [source, cypher]
 ----
-CALL gds.pageRank.stream.estimate({
-  nodeProjection: 'Person',
-  relationshipProjection: 'INTERACTS'
-}) YIELD mapView
+CALL gds.pageRank.stream.estimate('got-interactions',{}) YIELD mapView
 UNWIND [ x IN mapView.components | [x.name, x.memoryUsage] ] AS component
 RETURN component[0] AS name, component[1] AS size
 ----
@@ -655,7 +643,7 @@ Because each `INTERACTS` relationship is symmetric, you can even ignore its dire
 
 [source, cypher]
 ----
-CALL gds.graph.create('got-interactions', 'Person', {
+CALL gds.graph.project('got-interactions', 'Person', {
   INTERACTS: {
     orientation: 'UNDIRECTED'
   }
@@ -664,7 +652,7 @@ CALL gds.graph.create('got-interactions', 'Person', {
 
 == Graph catalog: standard creation and Cypher projection
 
-The GDS library supports two approaches for loading projected graphs - *standard creation* (`gds.graph.create()`) and *Cypher projection* (`gds.graph.create.cypher()`).
+The GDS library supports two approaches for loading projected graphs - *standard creation* (`gds.graph.project()`) and *Cypher projection* (`gds.graph.project.cypher()`).
 
 In the *standard creation* approach, which you used to create your graph, you specify node labels and relationship types and project them onto the in-memory graph as labels and relationship types with new names.
 You can further specify properties for each node label and relationship type.
@@ -688,7 +676,7 @@ You need to return `id`, `source`, and `target` columns and can optionally retur
 
 [source, cypher]
 ----
-CALL gds.graph.create.cypher(
+CALL gds.graph.project.cypher(
   'got-interactions-cypher',
   'MATCH (n:Person) RETURN id(n) AS id',
   'MATCH (s:Person)-[i:INTERACTS]->(t:Person) RETURN id(s) AS source, id(t) AS target, i.weight AS weight'
@@ -709,7 +697,7 @@ The projected relationship does not exist in the stored graph.
 
 [source, cypher]
 ----
-CALL gds.graph.create.cypher(
+CALL gds.graph.project.cypher(
   'same-house-graph',
   'MATCH (n:Person) RETURN id(n) AS id',
   'MATCH (p1:Person)-[:BELONGS_TO]-(:House)-[:BELONGS_TO]-(p2:Person) RETURN id(p1) AS source, id(p2) AS target'
@@ -833,7 +821,7 @@ If you have removed it from the catalog, you have to create it again:
 
 [source, cypher]
 ----
-CALL gds.graph.create('got-interactions', 'Person', {
+CALL gds.graph.project('got-interactions', 'Person', {
   INTERACTS: {
     orientation: 'UNDIRECTED'
   }
@@ -881,7 +869,7 @@ Let's load a graph for the interactions in book 1 and compute and write the Page
 
 [source, cypher]
 ----
-CALL gds.graph.create(
+CALL gds.graph.project(
   'got-interactions-1',
   'Person',
   {
@@ -900,22 +888,6 @@ CALL gds.pageRank.write(
     writeProperty: 'pageRank-1'
   }
 )
-----
-
-It is generally a good idea to explicitly create the graph before executing an algorithm.
-However, if you do not think that you will operate on this graph in the future, you can load it implicitly as part of the algorithm execution.
-
-[source, cypher]
-----
-CALL gds.pageRank.write({
-  nodeProjection: 'Person',
-  relationshipProjection: {
-    INTERACTS_1: {
-      orientation: 'UNDIRECTED'
-    }
-  },
-  writeProperty: 'pageRank-1'
-})
 ----
 
 == Page Rank: exercise
@@ -943,7 +915,7 @@ You can find the solution on the next slide.
 
 [source, cypher]
 ----
-CALL gds.graph.create.cypher(
+CALL gds.graph.project.cypher(
   'house-battles',
   'MATCH (h:House) RETURN id(h) AS id',
   'MATCH (h1:House)-->(b:Battle)<--(h2:House) RETURN id(h1) AS source, id(h2) AS target, count(b) AS weight'
@@ -992,7 +964,7 @@ In LPA, the weight is used to determine the influence of neighboring nodes when 
 
 [source, cypher]
 ----
-CALL gds.graph.create(
+CALL gds.graph.project(
   'got-interactions-weighted',
   'Person',
   {
@@ -1066,7 +1038,7 @@ Since 'got-interactions-weighted' does not contain the 'community' property, you
 
 [source, cypher]
 ----
-CALL gds.graph.create(
+CALL gds.graph.project(
   'got-interactions-seeded',
   {
     Person: {
@@ -1139,7 +1111,7 @@ If you have removed it from the catalog, you have to create it again:
 
 [source, cypher]
 ----
-CALL gds.graph.create('got-interactions', 'Person', {
+CALL gds.graph.project('got-interactions', 'Person', {
   INTERACTS: {
     orientation: 'UNDIRECTED'
   }
@@ -1163,7 +1135,7 @@ It will contain people that belong to the same culture.
 
 [source, cypher]
 ----
-CALL gds.graph.create.cypher(
+CALL gds.graph.project.cypher(
   'got-culture-interactions-cypher',
   'MATCH (n:Person) RETURN id(n) AS id',
   'MATCH (p1:Person)-[:MEMBER_OF_CULTURE]->(c:Culture)<-[:MEMBER_OF_CULTURE]-(p2:Person) RETURN id(p1) AS source, id(p2) AS target'
@@ -1204,7 +1176,7 @@ You will consider a graph with relationships weighted by the number of times a p
 
 [source, cypher]
 ----
-CALL gds.graph.create('got-wcc-weighted-interactions',
+CALL gds.graph.project('got-wcc-weighted-interactions',
   'Person',
   {
     INTERACTS: {
@@ -1259,7 +1231,7 @@ Then, you can create a projected graph, called `got-wcc-interactions-seeded` and
 
 [source, cypher]
 ----
-CALL gds.graph.create(
+CALL gds.graph.project(
   'got-wcc-interactions-seeded',
   {
     Person: {
@@ -1388,7 +1360,7 @@ If you have removed it from the catalog, you have to create it again:
 
 [source, cypher]
 ----
-CALL gds.graph.create('got-interactions', 'Person', {
+CALL gds.graph.project('got-interactions', 'Person', {
   INTERACTS: {
     orientation: 'UNDIRECTED'
   }
@@ -1426,7 +1398,7 @@ Otherwise, the number specified in `defaultValue` will be used as a fallback.
 
 [source, cypher]
 ----
-CALL gds.graph.create(
+CALL gds.graph.project(
   'got-weighted-interactions',
   'Person',
   {
@@ -1544,7 +1516,7 @@ You create the graph using the following query:
 
 [source, cypher]
 ----
-CALL gds.graph.create('got-character-related-entities', ['Person', 'Book', 'House', 'Culture'], '*')
+CALL gds.graph.project('got-character-related-entities', ['Person', 'Book', 'House', 'Culture'], '*')
 ----
 
 This graph creation uses projection with multiple node labels.
@@ -1710,7 +1682,7 @@ Let us verify with the triangle count procedure executed on the same subgraph as
 
 [source, cypher]
 ----
-CALL gds.graph.create.cypher('small_got',
+CALL gds.graph.project.cypher('small_got',
 'MATCH (n:Person) RETURN id(n) AS id',
 "MATCH (n:Person)-[r:INTERACTS_1]->(m:Person)
   WHERE n.name IN ['Robb Stark', 'Tyrion Lannister'] RETURN id(n) AS source, id(m) AS target
@@ -1735,7 +1707,7 @@ For finding the people with the highest overall triangle count in book 1, we can
 .This will create the named graph we are going to use in the examples (run if not already created)
 [source, cypher]
 ----
-CALL gds.graph.create(
+CALL gds.graph.project(
   'got-interactions-1',
   'Person',
   {
@@ -1824,7 +1796,7 @@ For finding the people with the highest overall local clustering coefficient in 
 .This will create the named graph we are going to use in the examples (run if not already created)
 [source, cypher]
 ----
-CALL gds.graph.create(
+CALL gds.graph.project(
   'got-interactions-1',
   'Person',
   {
@@ -1920,7 +1892,7 @@ If you have removed it from the catalog, you have to create it again:
 
 [source, cypher]
 ----
-CALL gds.graph.create('got-interactions', 'Person', {
+CALL gds.graph.project('got-interactions', 'Person', {
   INTERACTS: {
     orientation: 'UNDIRECTED'
   }

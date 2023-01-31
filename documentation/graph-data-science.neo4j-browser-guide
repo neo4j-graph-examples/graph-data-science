@@ -6,7 +6,7 @@
 */	
 @import url("//maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css");
 
-.imageblock .content img, .image img {max-width: 900px;max-height: 300px;}
+.imageblock .content img, .image img {max-width: 100%;}
 .deck h3, .deck h4 {display: block !important;margin-bottom:8px;margin-top:5px;}
 .listingblock {margin:8px;}
 .pull-bottom {position:relative;bottom:1em;}
@@ -75,7 +75,10 @@ The GDS library is divided into three tiers of maturity: product, beta and alpha
 </ul>
 </div>
 <div class="paragraph">
-<p>For more details, see <a href="https://neo4j.com/docs/graph-algorithms/current/" target="_blank">the documentation</a>.</p>
+<p>For more resources, see <a href="https://neo4j.com/developer/graph-data-science/" target="_blank">the developer guides</a>.</p>
+</div>
+<div class="paragraph">
+<p>The official Graph Data Science (GDS) library documentation can be found <a href="https://neo4j.com/docs/graph-data-science/current/" target="_blank">here</a>.</p>
 </div>
 	</div>
   </div>
@@ -94,7 +97,8 @@ The GDS library is divided into three tiers of maturity: product, beta and alpha
 </div>
 </div>
 <div class="paragraph">
-<p>The example dataset used to demonstrate the GDS library is based on the Game of Thrones fantasy saga.
+<p>Before you can run any of the algorithms, you need to import your data in Neo4j.<br>
+The example dataset used to demonstrate the GDS library is based on the Game of Thrones fantasy saga.
 You may recognize it from the blogs, events, and sandbox.
 However, both data and queries are different enough from previous installments that it merits your attention.
 &#160;<br>
@@ -132,6 +136,467 @@ For more information about the data extraction process, see <em><a href="https:/
 </div>
 <div class="paragraph">
 <p>The <code>(:Person)-[:INTERACTS]&#8594;(:Person)</code> graph is enriched with data on houses, battles, commanders, kings, knights, regions, locations, and deaths.</p>
+</div>
+<div class="paragraph">
+<p>Now, let&#8217;s import the data.</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Data ingestion</h3>
+    <br/>
+    <div>
+      <div class="listingblock">
+<div class="title">Enable <code>multi statement queries</code></div>
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding"><!--code-->:config "enableMultiStatementMode":true<!--/code--></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Create unique constraints on the names of the nodes <code>:Location</code>, <code>:Region</code>, <code>:Battle</code>, <code>:Person</code>, and <code>:House</code>. This ensures your data integrity and improves performance.</div>
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CREATE CONSTRAINT IF NOT EXISTS FOR (n:Location) REQUIRE (n.name) IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:Region) REQUIRE (n.name) IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:Battle) REQUIRE (n.name) IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:Person) REQUIRE (n.name) IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (n:House) REQUIRE (n.name) IS UNIQUE;<!--/code--></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Then, ingest the data.</div>
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->LOAD CSV WITH HEADERS FROM 'https://s3.eu-north-1.amazonaws.com/com.neo4j.gds.browser-guide/data/battles.csv' AS row
+MERGE (b:Battle {name: row.name})
+  ON CREATE SET b.year = toInteger(row.year),
+  b.summer = row.summer,
+  b.major_death = row.major_death,
+  b.major_capture = row.major_capture,
+  b.note = row.note,
+  b.battle_type = row.battle_type,
+  b.attacker_size = toInteger(row.attacker_size),
+  b.defender_size = toInteger(row.defender_size);
+
+LOAD CSV WITH HEADERS FROM 'https://s3.eu-north-1.amazonaws.com/com.neo4j.gds.browser-guide/data/battles.csv' AS row
+
+// Because there is only attacker_outcome in the data, do a CASE statement for defender_outcome.
+WITH row,
+     CASE WHEN row.attacker_outcome = 'win' THEN 'loss'
+       ELSE 'win'
+       END AS defender_outcome
+
+// Match the battle
+MATCH (b:Battle {name: row.name})
+
+// All battles have at least one attacker, so you don't have to use FOREACH.
+MERGE (attacker1:House {name: row.attacker_1})
+MERGE (attacker1)-[a1:ATTACKER]-&gt;(b)
+  ON CREATE SET a1.outcome = row.attacker_outcome
+
+// Use FOREACH to skip the null values.
+FOREACH
+(ignoreMe IN CASE WHEN row.defender_1 IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (defender1:House {name: row.defender_1})
+  MERGE (defender1)-[d1:DEFENDER]-&gt;(b)
+    ON CREATE SET d1.outcome = defender_outcome
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.defender_2 IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (defender2:House {name: row.defender_2})
+  MERGE (defender2)-[d2:DEFENDER]-&gt;(b)
+    ON CREATE SET d2.outcome = defender_outcome
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.attacker_2 IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (attacker2:House {name: row.attacker_2})
+  MERGE (attacker2)-[a2:ATTACKER]-&gt;(b)
+    ON CREATE SET a2.outcome = row.attacker_outcome
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.attacker_3 IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (attacker2:House {name: row.attacker_3})
+  MERGE (attacker3)-[a3:ATTACKER]-&gt;(b)
+    ON CREATE SET a3.outcome = row.attacker_outcome
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.attacker_4 IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (attacker4:House {name: row.attacker_4})
+  MERGE (attacker4)-[a4:ATTACKER]-&gt;(b)
+    ON CREATE SET a4.outcome = row.attacker_outcome
+);
+
+LOAD CSV WITH HEADERS FROM
+'https://s3.eu-north-1.amazonaws.com/com.neo4j.gds.browser-guide/data/battles.csv'
+AS row
+MATCH (b:Battle {name: row.name})
+
+// Use coalesce to replace the null values with "Unknown".
+MERGE (location:Location {name: coalesce(row.location, 'Unknown')})
+MERGE (b)-[:IS_IN]-&gt;(location)
+MERGE (region:Region {name: row.region})
+MERGE (location)-[:IS_IN]-&gt;(region);
+
+LOAD CSV WITH HEADERS FROM 'https://s3.eu-north-1.amazonaws.com/com.neo4j.gds.browser-guide/data/battles.csv' AS row
+
+// Split the columns that may contain more than one person.
+WITH row,
+     split(row.attacker_commander, ',') AS att_commanders,
+     split(row.defender_commander, ',') AS def_commanders,
+     split(row.attacker_king, '/') AS att_kings,
+     split(row.defender_king, '/') AS def_kings,
+     row.attacker_outcome AS att_outcome,
+     CASE WHEN row.attacker_outcome = 'win' THEN 'loss'
+       ELSE 'win'
+       END AS def_outcome
+MATCH (b:Battle {name: row.name})
+
+UNWIND att_commanders AS att_commander
+MERGE (p:Person {name: trim(att_commander)})
+MERGE (p)-[ac:ATTACKER_COMMANDER]-&gt;(b)
+  ON CREATE SET ac.outcome = att_outcome
+
+// To end the unwind and correct cardinality(number of rows), use any aggregation function ( e.g. count(*)).
+WITH b, def_commanders, def_kings, att_kings, att_outcome, def_outcome,
+     COUNT(*) AS c1
+UNWIND def_commanders AS def_commander
+MERGE (p:Person {name: trim(def_commander)})
+MERGE (p)-[dc:DEFENDER_COMMANDER]-&gt;(b)
+  ON CREATE SET dc.outcome = def_outcome
+
+// Reset cardinality with an aggregation function (end the unwind).
+WITH b, def_kings, att_kings, att_outcome, def_outcome, COUNT(*) AS c2
+UNWIND def_kings AS def_king
+MERGE (p:Person {name: trim(def_king)})
+MERGE (p)-[dk:DEFENDER_KING]-&gt;(b)
+  ON CREATE SET dk.outcome = def_outcome
+
+// Reset cardinality with an aggregation function (end the unwind).
+WITH b, att_kings, att_outcome, COUNT(*) AS c3
+UNWIND att_kings AS att_king
+MERGE (p:Person {name: trim(att_king)})
+MERGE (p)-[ak:ATTACKER_KING]-&gt;(b)
+  ON CREATE SET ak.outcome = att_outcome;
+
+LOAD CSV WITH HEADERS FROM
+'https://s3.eu-north-1.amazonaws.com/com.neo4j.gds.browser-guide/data/character-deaths.csv'
+AS row
+
+WITH row,
+     CASE WHEN row.Nobility = '1' THEN 'Noble'
+       ELSE 'Commoner'
+       END AS status_value
+
+// Remove House for better linking.
+MERGE (house:House {name: replace(row.Allegiances, 'House ', '')})
+MERGE (person:Person {name: row.Name})
+
+SET person.gender = CASE WHEN row.Gender = '1' THEN 'male'
+  ELSE 'female'
+  END,
+person.book_intro_chapter = row.`Book Intro Chapter`,
+person.book_death_chapter = row.`Death Chapter`,
+person.book_of_death = row.`Book of Death`,
+person.death_year = toInteger(row.`Death Year`)
+MERGE (person)-[:BELONGS_TO]-&gt;(house)
+MERGE (status:Status {name: status_value})
+MERGE (person)-[:HAS_STATUS]-&gt;(status)
+
+// Use FOREACH to skip the null values.
+FOREACH
+(ignoreMe IN CASE WHEN row.GoT = '1' THEN [1]
+  ELSE []
+  END |
+  MERGE (book1:Book {sequence: 1})
+    ON CREATE SET book1.name = 'Game of thrones'
+  MERGE (person)-[:APPEARED_IN]-&gt;(book1)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.CoK = '1' THEN [1]
+  ELSE []
+  END |
+  MERGE (book2:Book {sequence: 2})
+    ON CREATE SET book2.name = 'Clash of kings'
+  MERGE (person)-[:APPEARED_IN]-&gt;(book2)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.SoS = '1' THEN [1]
+  ELSE []
+  END |
+  MERGE (book3:Book {sequence: 3})
+    ON CREATE SET book3.name = 'Storm of swords'
+  MERGE (person)-[:APPEARED_IN]-&gt;(book3)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.FfC = '1' THEN [1]
+  ELSE []
+  END |
+  MERGE (book4:Book {sequence: 4})
+    ON CREATE SET book4.name = 'Feast for crows'
+  MERGE (person)-[:APPEARED_IN]-&gt;(book4)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.DwD = '1' THEN [1]
+  ELSE []
+  END |
+  MERGE (book5:Book {sequence: 5})
+    ON CREATE SET book5.name = 'Dance with dragons'
+  MERGE (person)-[:APPEARED_IN]-&gt;(book5)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.`Book of Death` IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (book:Book {sequence: toInteger(row.`Book of Death`)})
+  MERGE (person)-[:DIED_IN]-&gt;(book)
+);
+
+LOAD CSV WITH HEADERS FROM
+'https://s3.eu-north-1.amazonaws.com/com.neo4j.gds.browser-guide/data/character-predictions.csv'
+AS row
+MERGE (p:Person {name: row.name})
+// Set properties on the person node.
+SET p.title = row.title,
+p.death_year = toInteger(row.DateoFdeath),
+p.birth_year = toInteger(row.dateOfBirth),
+p.age = toInteger(row.age),
+p.gender = CASE WHEN row.male = '1' THEN 'male'
+  ELSE 'female'
+  END
+
+// Use FOREACH to skip the null values.
+FOREACH
+(ignoreMe IN CASE WHEN row.mother IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (mother:Person {name: row.mother})
+  MERGE (p)-[:RELATED_TO {name: 'mother'}]-&gt;(mother)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.spouse IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (spouse:Person {name: row.spouse})
+  MERGE (p)-[:RELATED_TO {name: 'spouse'}]-&gt;(spouse)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.father IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (father:Person {name: row.father})
+  MERGE (p)-[:RELATED_TO {name: 'father'}]-&gt;(father)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.heir IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (heir:Person {name: row.heir})
+  MERGE (p)-[:RELATED_TO {name: 'heir'}]-&gt;(heir)
+)
+
+// Remove "House " from the value for better linking.
+FOREACH
+(ignoreMe IN CASE WHEN row.house IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (house:House {name: replace(row.house, 'House ', '')})
+  MERGE (p)-[:BELONGS_TO]-&gt;(house)
+);
+
+LOAD CSV WITH HEADERS FROM
+'https://s3.eu-north-1.amazonaws.com/com.neo4j.gds.browser-guide/data/character-predictions.csv'
+AS row
+
+MERGE (p:Person {name: row.name})
+
+// Use FOREACH to skip the null values. Lower row.culture for better linking.
+FOREACH
+(ignoreMe IN CASE WHEN row.culture IS NOT NULL THEN [1]
+  ELSE []
+  END |
+  MERGE (culture:Culture {name: toLower(row.culture)})
+  MERGE (p)-[:MEMBER_OF_CULTURE]-&gt;(culture)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.book1 = '1' THEN [1]
+  ELSE []
+  END |
+  MERGE (book:Book {sequence: 1})
+  MERGE (p)-[:APPEARED_IN]-&gt;(book)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.book2 = '1' THEN [1]
+  ELSE []
+  END |
+  MERGE (book:Book {sequence: 2})
+  MERGE (p)-[:APPEARED_IN]-&gt;(book)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.book3 = '1' THEN [1]
+  ELSE []
+  END |
+  MERGE (book:Book {sequence: 3})
+  MERGE (p)-[:APPEARED_IN]-&gt;(book)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.book4 = '1' THEN [1]
+  ELSE []
+  END |
+  MERGE (book:Book {sequence: 4})
+  MERGE (p)-[:APPEARED_IN]-&gt;(book)
+)
+FOREACH
+(ignoreMe IN CASE WHEN row.book5 = '1' THEN [1]
+  ELSE []
+  END |
+  MERGE (book:Book {sequence: 5})
+  MERGE (p)-[:APPEARED_IN]-&gt;(book)
+);
+
+LOAD CSV WITH HEADERS FROM 'https://s3.eu-north-1.amazonaws.com/com.neo4j.gds.browser-guide/data/character-predictions.csv' AS row
+
+WITH row,
+     CASE WHEN row.isAlive = '0' THEN [1]
+       ELSE []
+       END AS dead_person,
+     CASE WHEN row.isAliveMother = '0' THEN [1]
+       ELSE []
+       END AS dead_mother,
+     CASE WHEN row.isAliveFather = '0' THEN [1]
+       ELSE []
+       END AS dead_father,
+     CASE WHEN row.isAliveHeir = '0' THEN [1]
+       ELSE []
+       END AS dead_heir,
+     CASE WHEN row.isAliveSpouse = '0' THEN [1]
+       ELSE []
+       END AS dead_spouse
+
+MATCH (p:Person {name: row.name})
+
+// Use OPTIONAL MATCH (mother:Person {name: row.mother}) not to stop the query if the Person is not found.
+OPTIONAL MATCH (mother:Person {name: row.mother})
+OPTIONAL MATCH (father:Person {name: row.father})
+OPTIONAL MATCH (heir:Person {name: row.heir})
+OPTIONAL MATCH (spouse:Spouse {name: row.spouse})
+
+// Set the label Dead to each dead person.
+FOREACH (d IN dead_person |
+  SET p:Dead
+)
+FOREACH (d IN dead_mother |
+  SET mother:Dead
+)
+FOREACH (d IN dead_father |
+  SET father:Dead
+)
+FOREACH (d IN dead_heir |
+  SET heir:Dead
+)
+FOREACH (d IN dead_spouse |
+  SET spouse:Dead
+);
+
+MATCH (p:Person) where p.death_year is not null
+SET p:Dead;
+
+MATCH (p:Person)-[:DEFENDER_KING|ATTACKER_KING]-()
+SET p:King;
+
+MATCH (p:Person) where toLower(p.title) contains "king"
+SET p:King;
+
+MATCH (p:Person) where p.title = "Ser"
+SET p:Knight;
+
+// Map the names coming from the different data sources.
+:param [map] =&gt; {
+  RETURN
+    {
+      `Aemon Targaryen (Maester Aemon)`: 'Aemon Targaryen (son of Maekar I)',
+      `Arstan`:                          'Barristan Selmy',
+      `Garin (orphan)`:                  'Garin (Orphan)',
+      `Hareth (Moles Town)`:             "Hareth (Mole's Town)",
+      `Jaqen Hghar`:                     "Jaqen H'ghar",
+      `Lommy Greenhands`:                'Lommy',
+      `Rattleshirt`:                     'Lord of Bones',
+      `Thoros of Myr`:                   'Thoros'
+    } AS map
+};
+
+LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/mathbeveridge/asoiaf/2d8ded13eda5128ace5e3b995253d69e62bc4bf6/data/asoiaf-book1-edges.csv' AS row
+WITH replace(row.Source, '-', ' ') AS srcName,
+     replace(row.Target, '-', ' ') AS tgtName,
+     toInteger(row.weight) AS weight
+MERGE (src:Person {name: coalesce($map[srcName], srcName)})
+MERGE (tgt:Person {name: coalesce($map[tgtName], tgtName)})
+MERGE (src)-[i:INTERACTS {book: 1}]-&gt;(tgt)
+  ON CREATE SET i.weight = weight
+  ON MATCH SET i.weight = i.weight + weight
+MERGE (src)-[r:INTERACTS_1]-&gt;(tgt)
+  ON CREATE SET r.weight = weight, r.book = 1;
+
+LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/mathbeveridge/asoiaf/2d8ded13eda5128ace5e3b995253d69e62bc4bf6/data/asoiaf-book2-edges.csv' AS row
+WITH replace(row.Source, '-', ' ') AS srcName,
+     replace(row.Target, '-', ' ') AS tgtName,
+     toInteger(row.weight) AS weight
+MERGE (src:Person {name: coalesce($map[srcName], srcName)})
+MERGE (tgt:Person {name: coalesce($map[tgtName], tgtName)})
+MERGE (src)-[i:INTERACTS {book: 2}]-&gt;(tgt)
+  ON CREATE SET i.weight = weight
+  ON MATCH SET i.weight = i.weight + weight
+MERGE (src)-[r:INTERACTS_2]-&gt;(tgt)
+  ON CREATE SET r.weight = weight, r.book = 2;
+
+LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/mathbeveridge/asoiaf/2d8ded13eda5128ace5e3b995253d69e62bc4bf6/data/asoiaf-book3-edges.csv' AS row
+WITH replace(row.Source, '-', ' ') AS srcName,
+     replace(row.Target, '-', ' ') AS tgtName,
+     toInteger(row.weight) AS weight
+MERGE (src:Person {name: coalesce($map[srcName], srcName)})
+MERGE (tgt:Person {name: coalesce($map[tgtName], tgtName)})
+MERGE (src)-[i:INTERACTS {book: 3}]-&gt;(tgt)
+  ON CREATE SET i.weight = weight
+  ON MATCH SET i.weight = i.weight + weight
+MERGE (src)-[r:INTERACTS_3]-&gt;(tgt)
+  ON CREATE SET r.weight = weight, r.book = 3;
+
+LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/mathbeveridge/asoiaf/2d8ded13eda5128ace5e3b995253d69e62bc4bf6/data/asoiaf-book4-edges.csv' AS row
+WITH replace(row.Source, '-', ' ') AS srcName,
+     replace(row.Target, '-', ' ') AS tgtName,
+     toInteger(row.weight) AS weight
+MERGE (src:Person {name: coalesce($map[srcName], srcName)})
+MERGE (tgt:Person {name: coalesce($map[tgtName], tgtName)})
+MERGE (src)-[i:INTERACTS {book: 4}]-&gt;(tgt)
+  ON CREATE SET i.weight = weight
+  ON MATCH SET i.weight = i.weight + weight
+MERGE (src)-[r:INTERACTS_4]-&gt;(tgt)
+  ON CREATE SET r.weight = weight, r.book = 4;
+
+LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/mathbeveridge/asoiaf/2d8ded13eda5128ace5e3b995253d69e62bc4bf6/data/asoiaf-book5-edges.csv' AS row
+WITH replace(row.Source, '-', ' ') AS srcName,
+     replace(row.Target, '-', ' ') AS tgtName,
+     toInteger(row.weight) AS weight
+MERGE (src:Person {name: coalesce($map[srcName], srcName)})
+MERGE (tgt:Person {name: coalesce($map[tgtName], tgtName)})
+MERGE (src)-[i:INTERACTS {book: 5}]-&gt;(tgt)
+  ON CREATE SET i.weight = weight
+  ON MATCH SET i.weight = i.weight + weight
+MERGE (src)-[r:INTERACTS_5]-&gt;(tgt)
+  ON CREATE SET r.weight = weight, r.book = 5;<!--/code--></pre>
+</div>
 </div>
 	</div>
   </div>
@@ -187,7 +652,7 @@ RETURN min(num) AS min, max(num) AS max, avg(num) AS avg_interactions, stdev(num
 <div class="listingblock">
 <div class="content">
 <pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->MATCH (c:Person)-[r:INTERACTS]-&gt;()
-WITH r.book as book, c, count(*) AS num
+WITH r.book AS book, c, count(*) AS num
 RETURN book, min(num) AS min, max(num) AS max, avg(num) AS avg_interactions, stdev(num) AS stdev
 ORDER BY book<!--/code--></pre>
 </div>
@@ -239,7 +704,7 @@ This means that before you execute an algorithm, you must create (explicitly or 
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create.estimate('Person', 'INTERACTS') YIELD nodeCount, relationshipCount, requiredMemory<!--/code--></pre>
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project.estimate('Person', 'INTERACTS') YIELD nodeCount, relationshipCount, requiredMemory<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -248,7 +713,7 @@ So, you can create your projected graph and name it, for example, <code>got-inte
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create('got-interactions', 'Person', 'INTERACTS')<!--/code--></pre>
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project('got-interactions', 'Person', 'INTERACTS')<!--/code--></pre>
 </div>
 </div>
 	</div>
@@ -267,7 +732,7 @@ So, you can create your projected graph and name it, for example, <code>got-inte
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.pageRank.stream.estimate('got-interactions') YIELD requiredMemory<!--/code--></pre>
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.pageRank.stream.estimate('got-interactions', {}) YIELD requiredMemory<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -290,39 +755,24 @@ The procedure returns a tree view and a map view of all the "components" with th
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.pageRank.stream.estimate('got-interactions')<!--/code--></pre>
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.pageRank.stream.estimate('got-interactions', {})<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
 <p>As you see, the more detailed views contain estimates on the individual compute steps and the result data structures.</p>
 </div>
 <div class="paragraph">
-<p>You can also estimate the memory usage for graph creation and algorithm execution at the same time by using the so-called <em>implicit graph creation</em>.
-This way, the configuration for the graph creation is inlined within the algorithm procedure call.</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.pageRank.stream.estimate({nodeProjection: 'Person', relationshipProjection: 'INTERACTS'})<!--/code--></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The result shows an increased memory estimate, explained by the memory consumed by the graph creation.</p>
-</div>
-<div class="paragraph">
 <p>Now, you can filter the result to the top level components: graph and algorithm.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.pageRank.stream.estimate({
-  nodeProjection: 'Person',
-  relationshipProjection: 'INTERACTS'
-}) YIELD mapView
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.pageRank.stream.estimate('got-interactions',{}) YIELD mapView
 UNWIND [ x IN mapView.components | [x.name, x.memoryUsage] ] AS component
 RETURN component[0] AS name, component[1] AS size<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>For more details, see <em><a href="https://neo4j.com/docs/graph-algorithms/current/projected-graph-model/memory-requirements/" target="_blank">the Memory requirements chapter in the Graph Algorithms User Guide</a></em>.</p>
+<p>For more details, see <em><a href="https://neo4j.com/docs/graph-data-science/current/common-usage/memory-estimation/" target="_blank">the Memory Estimation section in the GDS Manual</a></em>.</p>
 </div>
 	</div>
   </div>
@@ -410,7 +860,7 @@ Because each <code>INTERACTS</code> relationship is symmetric, you can even igno
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create('got-interactions', 'Person', {
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project('got-interactions', 'Person', {
   INTERACTS: {
     orientation: 'UNDIRECTED'
   }
@@ -429,7 +879,7 @@ Because each <code>INTERACTS</code> relationship is symmetric, you can even igno
     <br/>
     <div>
       <div class="paragraph">
-<p>The GDS library supports two approaches for loading projected graphs - <strong>standard creation</strong> (<code>gds.graph.create()</code>) and <strong>Cypher projection</strong> (<code>gds.graph.create.cypher()</code>).</p>
+<p>The GDS library supports two approaches for loading projected graphs - <strong>standard creation</strong> (<code>gds.graph.project()</code>) and <strong>Cypher projection</strong> (<code>gds.graph.project.cypher()</code>).</p>
 </div>
 <div class="paragraph">
 <p>In the <strong>standard creation</strong> approach, which you used to create your graph, you specify node labels and relationship types and project them onto the in-memory graph as labels and relationship types with new names.
@@ -462,32 +912,23 @@ When designing a use case with Cypher projection at a production scale, make sur
     <br/>
     <div>
       <div class="paragraph">
-<p>You run two queries: one for the nodes and one for the relationships.
-You can also remove the parallel relationships between the pairs of nodes by adding an <code>aggregation</code> key for the property <code>weight</code> in the <code>relationshipProperties</code> specification.
-The <code>relationshipProperties</code> configuration maps a returned property to property names used internally.</p>
+<p>You specify two queries: one for the nodes and one for the relationships.
+You need to return <code>id</code>, <code>source</code>, and <code>target</code> columns and can optionally return label, relationship type and property columns.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create.cypher(
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project.cypher(
   'got-interactions-cypher',
   'MATCH (n:Person) RETURN id(n) AS id',
-  'MATCH (s:Person)-[i:INTERACTS]-&gt;(t:Person) RETURN id(s) AS source, id(t) AS target, i.weight AS weight',
-  {
-    relationshipProperties: {
-      weight: {
-        property: 'weight',
-        aggregation: 'SINGLE'
-    }
-  }
-})<!--/code--></pre>
+  'MATCH (s:Person)-[i:INTERACTS]-&gt;(t:Person) RETURN id(s) AS source, id(t) AS target, i.weight AS weight'
+)<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The first query returns the node IDs; the second one returns the source and target IDs of the relationships; and the <code>aggregation</code> key modifies the property values according to the specified aggregation.
+<p>The first query returns the node IDs; the second one returns the source and target IDs of the relationships, as well as one relationship property <code>weight</code>.
 Here, you can use any pair of Cypher queries as long as they return the expected columns and field types.<br>
-To keep all relationships, use <code>aggregation: 'NONE'</code>.
-To retain one of the relationships (arbitrary selected), use <code>aggregation: 'SKIP'</code>.
-More details about the deduplication strategies, you can find <em><a href="https://neo4j.com/docs/graph-algorithms/current/projected-graph-model/cypher-projection/#cypher-projection-relationship-deduplication" target="_blank">here</a></em>.</p>
+To aggregate relationships, standard Cypher features can be used, such as <code>DISTINCT</code>.
+You can find more details about relationship aggregations <em><a href="https://neo4j.com/docs/graph-data-science/current/management-ops/cypher-projection/#cypher-projection-relationship-aggregation" target="_blank">here</a></em>.</p>
 </div>
 	</div>
   </div>
@@ -508,7 +949,7 @@ The projected relationship does not exist in the stored graph.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create.cypher(
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project.cypher(
   'same-house-graph',
   'MATCH (n:Person) RETURN id(n) AS id',
   'MATCH (p1:Person)-[:BELONGS_TO]-(:House)-[:BELONGS_TO]-(p2:Person) RETURN id(p1) AS source, id(p2) AS target'
@@ -624,6 +1065,12 @@ In this tutorial, we will show you how to get the most out of the following algo
 <li>
 <p>Node Similarity</p>
 </li>
+<li>
+<p>Triangle Count</p>
+</li>
+<li>
+<p>Local Clustering Coefficient</p>
+</li>
 </ul>
 </div>
 	</div>
@@ -730,10 +1177,9 @@ As a result, the score of a node is a certain weighted average of the scores of 
 </div>
 <div class="paragraph">
 <p>PageRank is an <em>iterative</em> algorithm.
-In each iteration, every node propagates its score evenly divided to its neighbours.<br>
+In each iteration, every node propagates its score evenly divided to its neighbors.<br>
 The algorithm runs for a configurable maximum number of iterations (default is 20), or until the node scores converge.
-That is, when the maximum change in node score between two sequential iterations is smaller than the configured <code>tolerance</code> value.
-For more information about tolerance, see <em><a href="https://neo4j.com/docs/graph-data-science/preview/algorithms/page-rank/#algorithms-pagerank-syntax" target="_blank">the documentation</a></em>.</p>
+That is, when the maximum change in node score between two sequential iterations is smaller than the configured <code>tolerance</code> value.</p>
 </div>
 <div class="paragraph">
 <p>In the following chapters, you will see how Page Rank identifies the most important nodes.</p>
@@ -750,7 +1196,17 @@ For more information about tolerance, see <em><a href="https://neo4j.com/docs/gr
     <br/>
     <div>
       <div class="paragraph">
-<p>Let&#8217;s find out who is influential in the graph by running Page Rank.</p>
+<p>Let&#8217;s find out who is influential in the graph by running Page Rank.
+If you have removed it from the catalog, you have to create it again:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project('got-interactions', 'Person', {
+  INTERACTS: {
+    orientation: 'UNDIRECTED'
+  }
+})<!--/code--></pre>
+</div>
 </div>
 <div class="paragraph">
 <p>First, you run a basic Page Rank call in <code>stream</code> mode.</p>
@@ -817,7 +1273,7 @@ Let&#8217;s load a graph for the interactions in book 1 and compute and write th
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create(
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project(
   'got-interactions-1',
   'Person',
   {
@@ -836,23 +1292,6 @@ Let&#8217;s load a graph for the interactions in book 1 and compute and write th
     writeProperty: 'pageRank-1'
   }
 )<!--/code--></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>It is generally a good idea to explicitly create the graph before executing an algorithm.
-However, if you do not think that you will operate on this graph in the future, you can load it implicitly as part of the algorithm execution.</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.pageRank.write({
-  nodeProjection: 'Person',
-  relationshipProjection: {
-    INTERACTS_1: {
-      orientation: 'UNDIRECTED'
-    }
-  },
-  writeProperty: 'pageRank-1'
-})<!--/code--></pre>
 </div>
 </div>
 	</div>
@@ -875,7 +1314,7 @@ However, if you do not think that you will operate on this graph in the future, 
 <div class="ulist">
 <ul>
 <li>
-<p>Write queries that call <code>algo.pageRank</code> for the <code>INTERACTS_2</code>, <code>INTERACTS_3</code>, <code>INTERACTS_4</code>, and <code>INTERACTS_5</code> relationship types.
+<p>Write queries that call <code>gds.pageRank.write</code> for the <code>INTERACTS_2</code>, <code>INTERACTS_3</code>, <code>INTERACTS_4</code>, and <code>INTERACTS_5</code> relationship types.
 You can load a graph for each relationship type explicitly, or use the shorthand.</p>
 </li>
 </ul>
@@ -922,13 +1361,10 @@ You can load a graph for each relationship type explicitly, or use the shorthand
     <div>
       <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create.cypher(
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project.cypher(
   'house-battles',
   'MATCH (h:House) RETURN id(h) AS id',
-  'MATCH (h1:House)--&gt;(b:Battle)&lt;--(h2:House) RETURN id(h1) AS source, id(h2) AS target, count(b) AS weight',
-  {
-    relationshipProperties: 'weight'
-  }
+  'MATCH (h1:House)--&gt;(b:Battle)&lt;--(h2:House) RETURN id(h1) AS source, id(h2) AS target, count(b) AS weight'
 )<!--/code--></pre>
 </div>
 </div>
@@ -978,7 +1414,7 @@ Nodes that have the same community label at convergence are considered from the 
 The algorithm runs for a configurable maximum number of iterations, or until it converges.</p>
 </div>
 <div class="paragraph">
-<p>For more details, see <em><a href="https://neo4j.com/docs/graph-data-science/1.0-preview/algorithms/label-propagation/" target="_blank">the documentation</a></em>.</p>
+<p>For more details, see <em><a href="https://neo4j.com/docs/graph-data-science/current/algorithms/label-propagation/" target="_blank">the documentation</a></em>.</p>
 </div>
 	</div>
   </div>
@@ -999,7 +1435,7 @@ In LPA, the weight is used to determine the influence of neighboring nodes when 
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create(
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project(
   'got-interactions-weighted',
   'Person',
   {
@@ -1087,7 +1523,7 @@ Since 'got-interactions-weighted' does not contain the 'community' property, you
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create(
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project(
   'got-interactions-seeded',
   {
     Person: {
@@ -1167,12 +1603,8 @@ LIMIT 5<!--/code--></pre>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.drop('got-interactions-weighted');<!--/code--></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.drop('got-interactions-seeded');<!--/code--></pre>
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.drop('got-interactions-weighted');
+CALL gds.graph.drop('got-interactions-seeded');<!--/code--></pre>
 </div>
 </div>
 	</div>
@@ -1211,13 +1643,23 @@ This algorithm is useful for identifying disjoint subgraphs, when pre-processing
     <br/>
     <div>
       <div class="paragraph">
-<p>You can re-use the <code>got-interactions</code> graph and run the algorithm to compute components.</p>
+<p>You can use the <code>got-interactions</code> graph and run the algorithm to compute components.
+If you have removed it from the catalog, you have to create it again:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project('got-interactions', 'Person', {
+  INTERACTS: {
+    orientation: 'UNDIRECTED'
+  }
+})<!--/code--></pre>
+</div>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.wcc.stream('got-interactions')
 YIELD nodeId, componentId
-RETURN componentId as component, count(nodeId) AS size
+RETURN componentId AS component, count(nodeId) AS size
 ORDER BY size DESC<!--/code--></pre>
 </div>
 </div>
@@ -1241,7 +1683,7 @@ It will contain people that belong to the same culture.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create.cypher(
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project.cypher(
   'got-culture-interactions-cypher',
   'MATCH (n:Person) RETURN id(n) AS id',
   'MATCH (p1:Person)-[:MEMBER_OF_CULTURE]-&gt;(c:Culture)&lt;-[:MEMBER_OF_CULTURE]-(p2:Person) RETURN id(p1) AS source, id(p2) AS target'
@@ -1255,7 +1697,7 @@ It will contain people that belong to the same culture.</p>
 <div class="content">
 <pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.wcc.stream('got-culture-interactions-cypher')
 YIELD nodeId, componentId
-RETURN componentId as component, count(nodeId) AS size ORDER BY size DESC<!--/code--></pre>
+RETURN componentId AS component, count(nodeId) AS size ORDER BY size DESC<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -1307,7 +1749,7 @@ In this case, relationships whose weight is below the given threshold will not b
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create('got-wcc-weighted-interactions',
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project('got-wcc-weighted-interactions',
   'Person',
   {
     INTERACTS: {
@@ -1334,7 +1776,7 @@ In this case, relationships whose weight is below the given threshold will not b
   }
 )
 YIELD nodeId, componentId
-RETURN count(distinct componentId) as components<!--/code--></pre>
+RETURN count(distinct componentId) AS components<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -1375,7 +1817,7 @@ This allows you to compute communities incrementally.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create(
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project(
   'got-wcc-interactions-seeded',
   {
     Person: {
@@ -1496,17 +1938,9 @@ What happened?</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.drop('got-culture-interactions-cypher');<!--/code--></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.drop('got-wcc-weighted-interactions');<!--/code--></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.drop('got-wcc-interactions-seeded');<!--/code--></pre>
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.drop('got-culture-interactions-cypher');
+CALL gds.graph.drop('got-wcc-weighted-interactions');
+CALL gds.graph.drop('got-wcc-interactions-seeded');<!--/code--></pre>
 </div>
 </div>
 	</div>
@@ -1520,23 +1954,46 @@ What happened?</p>
     <h3>Louvain</h3>
     <br/>
     <div>
-      <div class="paragraph">
-<p>The Louvain algorithm, like Label Propagation and Weakly Connected Components, is a community detection algorithm, designed to identify clusters in the graph. It differs from Label Propagation and Weakly Connected Components in how it finds communities:
-It uses so called modularity, i.e. how densely connected communities are versus a random graph, to define the community structure. It&#8217;s also
-a <em>hierarchical clustering</em> algorithm, so it can return communities at different scales, which can be useful for understanding how communities can combine at different levels.</p>
+      <div class="imageblock" style="float: right;">
+<div class="content">
+<img src="https://neo4j.com/docs/graph-algorithms/current/images/louvain-multilevel-graph.svg" alt="louvain multilevel graph" width="400">
+</div>
 </div>
 <div class="paragraph">
-<p>The algorithm consists of the repeated application of two steps. The first step is a "greedy" assignment of nodes to communities,
-favoring local optimizations of modularity. The second step is the definition of a new coarse-grained network, based on the
-communities found in the first step.
-During this step nodes of the same community are merged into a single node, inheriting all connected relationships.
-These two steps are repeated until no further modularity-increasing reassignments of communities are possible. Because ties are broken
-arbitrarily, you can get different results between different runs of the Louvain algorithm.</p>
+<p>The Louvain algorithm, like Label Propagation and Weakly Connected Components, is a community detection algorithm designed to identify clusters of nodes in a graph.
+It applies heuristic modularity to define the community structure by calculating how densely connected the nodes within a community (module) are, versus in a random graph.
+Louvain also reveals a hierarchy of communities at different scales, which enables you to zoom in on different levels of granularity and find sub-communities within sub-communities within sub-communities.</p>
 </div>
 <div class="paragraph">
-<p>The main drawback to Louvain is that it is significantly slower that Label Propagation and Weakly Connected Components, and the results can be hard to interpret.
-The algorithm is sensitive to the weighting scheme used on relationships. A good sign you need to tweak your schema or weighting is when you notice your results
-include only a <em>single</em> giant community, or every node is in it&#8217;s own community of one.</p>
+<p><strong>How Louvain works</strong></p>
+</div>
+<div class="paragraph">
+<p>Louvain is a <em>greedy</em>, <em>hierarchical clustering</em> algorithm.
+It repeats the following two steps until it finds a global optimum:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Assign the nodes to communities, favoring local optimizations of modularity.</p>
+</li>
+<li>
+<p>Aggregate the nodes from the same community to form a single node, which inherits all connected relationships.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>These two steps are repeated until no further modularity-increasing reassignments of communities are possible.
+Because ties are broken arbitrarily, you can get different results between different runs of the Louvain algorithm.</p>
+</div>
+<div class="paragraph">
+<p><strong>What to consider</strong></p>
+</div>
+<div class="paragraph">
+<p>Louvain is significantly slower than Label Propagation and Weakly Connected Components, and the results can be hard to interpret.</p>
+</div>
+<div class="paragraph">
+<p>The algorithm is sensitive to the weighting scheme used on the relationships.
+A good sign that you need to tweak your schema or weighting is when you notice that the results include only a <em>single</em> giant community, or every node is a community on its own.</p>
 </div>
 	</div>
   </div>
@@ -1550,7 +2007,17 @@ include only a <em>single</em> giant community, or every node is in it&#8217;s o
     <br/>
     <div>
       <div class="paragraph">
-<p>We will compute the Louvain community structure of our pre-loaded graph.</p>
+<p>Let&#8217;s compute the Louvain community structure of the graph <code>got-interactions</code>.
+If you have removed it from the catalog, you have to create it again:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project('got-interactions', 'Person', {
+  INTERACTS: {
+    orientation: 'UNDIRECTED'
+  }
+})<!--/code--></pre>
+</div>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1561,8 +2028,8 @@ ORDER BY communityId DESC<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The above query returns the name of the <code>Person</code> and the <code>community ID</code> they belongs to.
-If we want to investigate how many communities there are, and how many members there are in each community we can change the RETURN statement:</p>
+<p>The query returns the name of each person and the id of the community to which it belongs.
+If you want to investigate how many communities are available, and the number of members of each community, you can change the RETURN statement.</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1573,7 +2040,7 @@ ORDER BY members DESC<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>We can see that there are 1382 communities - 11 with more than one member.</p>
+<p>The result is 1382 communities, 11 of which with more than one member.</p>
 </div>
 	</div>
   </div>
@@ -1587,14 +2054,16 @@ ORDER BY members DESC<!--/code--></pre>
     <br/>
     <div>
       <div class="paragraph">
-<p>The Louvain algorithm can also run on weighted graphs, taking the given relationship weights into concern when calculating the modularity.</p>
+<p>Now let&#8217;s run the Louvain algorithm on a weighted graph.
+This way, it considers the relationship weights when calculating the modularity.</p>
 </div>
 <div class="paragraph">
-<p>Before we continue we need a graph that was created with the <code>weight</code> relationship property.</p>
+<p>First, you must create a graph with the <code>weight</code> relationship property.
+Otherwise, the number specified in <code>defaultValue</code> will be used as a fallback.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create(
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project(
   'got-weighted-interactions',
   'Person',
   {
@@ -1614,10 +2083,7 @@ ORDER BY members DESC<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>If a relationship doesn&#8217;t have a <code>weight</code> property the number specified in <code>defaultValue</code> will be used as a fallback.</p>
-</div>
-<div class="paragraph">
-<p>We can then use the 'weight' property on the INTERACTS relationship and see what happens:</p>
+<p>Then, use the <code>weight</code> property on the INTERACTS relationship and see what happens:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1633,7 +2099,7 @@ ORDER BY members DESC<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>This gives us 1384 communities, 13 with more than one member.</p>
+<p>The result is 1384 communities, 13 of which with more than one member.</p>
 </div>
 	</div>
   </div>
@@ -1647,11 +2113,10 @@ ORDER BY members DESC<!--/code--></pre>
     <br/>
     <div>
       <div class="paragraph">
-<p>One of the cool things about Louvain is that it is hierarchical clustering algorithm.
-It identifies communities at multiple levels in the graph: first smaller communities, that then combine to form larger ones.</p>
+<p>Now let&#8217;s try to identify communities at multiple levels in the graph: first small communities, and then combine them in large ones.</p>
 </div>
 <div class="paragraph">
-<p>To retrieve the intermediate communities, you can simple set <code>includeIntermediateCommunities: true</code>:</p>
+<p>To retrieve the intermediate communities, set <code>includeIntermediateCommunities</code> to <code>true</code>:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1666,7 +2131,7 @@ RETURN communityId, COUNT(DISTINCT nodeId) AS members, intermediateCommunityIds<
 </div>
 </div>
 <div class="paragraph">
-<p>We can extract membership in different levels of communities and see how the composition changes:</p>
+<p>You can extract membership in different levels of communities and see how the composition changes:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1676,15 +2141,18 @@ RETURN communityId, COUNT(DISTINCT nodeId) AS members, intermediateCommunityIds<
     includeIntermediateCommunities: true
   }
 )
-YIELD nodeId, communityIds
-RETURN count(distinct communityIds[0]), count(distinct communityIds[1])<!--/code--></pre>
+YIELD nodeId, intermediateCommunityIds
+RETURN count(distinct intermediateCommunityIds[0]), count(distinct intermediateCommunityIds[1])<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
-<p><code>includeIntermediateCommunities: false</code> is the default value, in this case the <code>communityIds</code> field of the result is <code>null</code></p>
+<p><code>includeIntermediateCommunities: false</code> is the default value, in which case, the <code>intermediateCommunityIds</code> field of the result is <code>null</code>.</p>
 </div>
 <div class="paragraph">
-<p>Can you identify nodes that belong to different communities in the first level of hierarchy, but combine to the same community in the next level?</p>
+<p><strong>Bonus task</strong></p>
+</div>
+<div class="paragraph">
+<p>Can you identify nodes that belong to different communities in the first level of the hierarchy, but combine to the same community in the next level?</p>
 </div>
 	</div>
   </div>
@@ -1698,7 +2166,7 @@ RETURN count(distinct communityIds[0]), count(distinct communityIds[1])<!--/code
     <br/>
     <div>
       <div class="paragraph">
-<p>To clean up the in-memory graph created during the Louvain exercise you can run the following query</p>
+<p>To clean up the in-memory graph created during the Louvain exercise, run the following query:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1716,21 +2184,37 @@ RETURN count(distinct communityIds[0]), count(distinct communityIds[1])<!--/code
     <h3>Node Similarity</h3>
     <br/>
     <div>
-      <div class="paragraph">
-<p>The Node Similarity algorithm is used to compute similarity scores for pairs of nodes in a graph.
-The similarity between two nodes is based on the respective sets of neighbors.</p>
+      <div class="imageblock" style="float: right;">
+<div class="content">
+<img src="https://miro.medium.com/max/4000/0*ZjP7pSSaidIgSDmm.png" alt="0*ZjP7pSSaidIgSDmm" width="350">
+</div>
 </div>
 <div class="paragraph">
-<p>To obtain a similarity measure between two sets, we use <em>Jaccard Similarity</em>.
-More precisely the similarity between two nodes A and B is given by J = [#nodes neighboring A and B] / [#nodes neighboring A or B (or both)].
-That is, the nodes are similar if most nodes that are neighbors to either node are in fact neighbors to both.</p>
+<p>The Node Similarity algorithm compares pairs of nodes in a graph based on their connections to other nodes.
+Two nodes are considered similar if they share many of the same neighbors.</p>
 </div>
 <div class="paragraph">
-<p>Typically, Node Similarity is used on a bipartite graph, for example containing People that have a <code>LIKES</code> relationship to Items.
-Node Similarity can then be used to find the pairs of People that are the most similar in the sense that they mostly like the same items.</p>
+<p>The algorithm uses the so-called <em>Jaccard Similarity Score</em> to obtain a similarity measure between two sets.
+More precisely, the similarity between two nodes A and B is given by the following formula:</p>
 </div>
 <div class="paragraph">
-<p>For more information see <a href="https://neo4j.com/docs/graph-algorithms/current/algorithms/node-similarity/" class="bare">https://neo4j.com/docs/graph-algorithms/current/algorithms/node-similarity/</a>.</p>
+<p>Similarity (A,B) = [#nodes neighboring A and B] / [#nodes neighboring A or B (or both)]</p>
+</div>
+<div class="paragraph">
+<p>That is, nodes A and B are similar if most nodes that are neighbors to either node are also neighbors to both.</p>
+</div>
+<div class="paragraph">
+<p><strong>How it works</strong></p>
+</div>
+<div class="paragraph">
+<p>The input of this algorithm is a bipartite, connected graph containing two disjoint node sets.
+Each relationship starts from a node in the first node set and ends at a node in the second node set.
+The Node Similarity algorithm compares all nodes from the first node set with each other based on their relationships to nodes in the second set.
+The complexity of this comparison grows quadratically with the number of nodes to compare.
+The algorithm reduces the complexity by ignoring disconnected nodes.</p>
+</div>
+<div class="paragraph">
+<p>For more information, see <a href="https://neo4j.com/docs/graph-data-science/current/algorithms/node-similarity/" target="_blank">the documentation</a>.</p>
 </div>
 	</div>
   </div>
@@ -1744,21 +2228,21 @@ Node Similarity can then be used to find the pairs of People that are the most s
     <br/>
     <div>
       <div class="paragraph">
-<p>We will explore Node Similarity on a graph consisting of GOT characters and various entities that they relate to.
-The task will be to find characters that are similar when comparing the books they appear or die in, as well as the houses and cultures they belong to.
-This is a bipartite graph between <code>Person</code> on one side and <code>Book</code>, <code>House</code> and <code>Culture</code> on the other side.</p>
+<p>Before you run the Node Similarity algorithm, you have to create a projected graph that consists of GOT characters and the various entities to which they relate.
+The task will be to find similar characters by comparing the books they appear or die in, and the houses and cultures to which they belong.
+It is a bipartite graph between <code>Person</code> on one side and <code>Book</code>, <code>House</code>, and <code>Culture</code> on the other side.</p>
 </div>
 <div class="paragraph">
-<p>We create the graph like so:</p>
+<p>You create the graph using the following query:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.create('got-character-related-entities', ['Person', 'Book', 'House', 'Culture'], '*')<!--/code--></pre>
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project('got-character-related-entities', ['Person', 'Book', 'House', 'Culture'], '*')<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
 <p>This graph creation uses projection with multiple node labels.
-We load all types of relationships with <code>*</code>.</p>
+You load all types of relationships with <code>*</code>.</p>
 </div>
 	</div>
   </div>
@@ -1772,10 +2256,9 @@ We load all types of relationships with <code>*</code>.</p>
     <br/>
     <div>
       <div class="paragraph">
-<p>We will now run Node Similarity with default settings and extract the top 10 most similar pairs of characters.
-The algorithm will compute similarities only for <code>Person</code> nodes as these are the only nodes with outgoing edges.
-To get more interesting results, we consider only characters with at least 20 related entities.
-The property <code>degreeCutoff</code> accomplishes precisely that.</p>
+<p>Now, you can run Node Similarity with the default settings and extract the top 10 most similar pairs of characters.
+The algorithm computes similarities only for <code>Person</code> nodes as they are the only nodes with outgoing edges.
+To get more interesting results, you can limit the result by using the property <code>degreeCutoff</code>, to get only characters with at least 20 related entities.</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1786,7 +2269,7 @@ The property <code>degreeCutoff</code> accomplishes precisely that.</p>
   }
 )
 YIELD node1, node2, similarity
-RETURN gds.util.asNode(node1).name as character1, gds.util.asNode(node2).name as character2, similarity
+RETURN gds.util.asNode(node1).name AS character1, gds.util.asNode(node2).name AS character2, similarity
 ORDER BY similarity DESC
 LIMIT 10<!--/code--></pre>
 </div>
@@ -1803,9 +2286,10 @@ LIMIT 10<!--/code--></pre>
     <br/>
     <div>
       <div class="paragraph">
-<p>In most real-world graphs, the number of pairs of nodes to compare is huge and most pairs are not similar, it is useful to be able to limit the output.
+<p>In most real-world graphs, the number of pairs of nodes to compare is huge, and most pairs are not similar.
+Therefore, it is useful to be able to limit the output.
 There are several ways to deal with this.
-We will begin by setting a threshold for a minimum similarity we are interested in by specifying the <code>similarityCutoff</code> property.</p>
+One way is to set a threshold for a minimum similarity by specifying the <code>similarityCutoff</code> property.</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1817,15 +2301,15 @@ We will begin by setting a threshold for a minimum similarity we are interested 
   }
 )
 YIELD node1, node2, similarity
-RETURN gds.util.asNode(node1).name as character1, gds.util.asNode(node2).name as character2, similarity
+RETURN gds.util.asNode(node1).name AS character1, gds.util.asNode(node2).name AS character2, similarity
 ORDER BY similarity DESC<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Note that we no longer need to use the LIMIT clause thanks to the similarity threshold.</p>
+<p>Note that you no longer need to use the LIMIT clause.</p>
 </div>
 <div class="paragraph">
-<p>By default the similarity cutoff is a very small number, effectively filtering out pairs that have zero similarity.</p>
+<p>By default, the <code>similarityCutoff</code> value is a very small number, effectively filtering out pairs that have zero similarity.</p>
 </div>
 	</div>
   </div>
@@ -1839,7 +2323,7 @@ ORDER BY similarity DESC<!--/code--></pre>
     <br/>
     <div>
       <div class="paragraph">
-<p>We can also limit the number of similarities returned by using the <code>topN</code> config option.</p>
+<p>You can also limit the number of similarities returned by using the <code>topN</code> config option.</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1851,7 +2335,7 @@ ORDER BY similarity DESC<!--/code--></pre>
   }
 )
 YIELD node1, node2, similarity
-RETURN gds.util.asNode(node1).name as character1, gds.util.asNode(node2).name as character2, similarity
+RETURN gds.util.asNode(node1).name AS character1, gds.util.asNode(node2).name AS character2, similarity
 ORDER BY similarity DESC<!--/code--></pre>
 </div>
 </div>
@@ -1871,8 +2355,8 @@ ORDER BY similarity DESC<!--/code--></pre>
     <div>
       <div class="paragraph">
 <p>Another way to limit the results is the <code>topK</code> config option.
-This makes the algorithm output the <code>K</code> most similar characters for each character.
-Let&#8217;s set this value to 1, since then we expect Loras Tyrell to have only one similar neighbor instead of two.</p>
+The algorithm output will be the <code>K</code> most similar characters for each character.
+Let&#8217;s set this value to 1, and see if Loras Tyrell has only one similar neighbor instead of two.</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1885,15 +2369,15 @@ Let&#8217;s set this value to 1, since then we expect Loras Tyrell to have only 
   }
 )
 YIELD node1, node2, similarity
-RETURN gds.util.asNode(node1).name as character1, gds.util.asNode(node2).name as character2, similarity
+RETURN gds.util.asNode(node1).name AS character1, gds.util.asNode(node2).name AS character2, similarity
 ORDER BY similarity DESC<!--/code--></pre>
 </div>
 </div>
 <div class="paragraph">
 <p>Did you notice anything surprising?
-Loras Tyrell still appeared twice as character2!
-The algorithm will only return the most similar character to Loras when considering his neighbors.
-The explanation is that when considering other characters, it is possible that multiple ones have Loras as their most similar neighbor.</p>
+Loras Tyrell still appeared twice as character2.<br>
+The algorithm returns only the most similar character to Loras when considering his neighbors.
+The explanation is that when considering other characters, multiple ones may have Loras as their most similar neighbor.</p>
 </div>
 	</div>
   </div>
@@ -1907,8 +2391,10 @@ The explanation is that when considering other characters, it is possible that m
     <br/>
     <div>
       <div class="paragraph">
-<p>Similarily to <code>topN</code> and <code>topK</code>, the <code>bottomN</code> and <code>bottomK</code> config options limit the results but return the least similar pairs.
-We will not include an example, but the interested reader is encouraged to try it out!</p>
+<p>Similarly to the <code>topN</code> and <code>topK</code>, <code>bottomN</code> and <code>bottomK</code> config options limit the results but return the least similar pairs.</p>
+</div>
+<div class="paragraph">
+<p>Why don&#8217;t you try it yourself?</p>
 </div>
 	</div>
   </div>
@@ -1922,10 +2408,10 @@ We will not include an example, but the interested reader is encouraged to try i
     <br/>
     <div>
       <div class="paragraph">
-<p>We end this chapter with an example that shows how to write similarity scores back to Neo4j.
+<p>Now, let&#8217;s see how to write similarity scores back to Neo4j.
 The output of the algorithm can be written as weighted relationships.
-The weight property is set to the computed similarity of the nodes that the relationship concerns.
-The name of the property written to is specified by the config option <code>writeProperty</code>.</p>
+The weight property is set to the computed node similarity of the relationship it concerns.
+The config option <code>writeProperty</code> specifies the name of the property.</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1942,7 +2428,512 @@ The name of the property written to is specified by the config option <code>writ
 </div>
 </div>
 <div class="paragraph">
-<p>We can see that this wrote 10 relationships which is due to the topN value.</p>
+<p>The result is 10 relationships caused by the <code>topN</code> value.</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Node Similarity: cleanup</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>To clean up the in-memory graph created during the tutorial, you can run the following query:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.drop('got-character-related-entities');<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Triangle Count</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p><strong>Since GDS 1.2</strong></p>
+</div>
+<div class="paragraph">
+<p>A triangle in a graph is a set of three nodes all connected to each other.
+The triangle count of a node is the number of triangles that node belongs to.
+The Graph Data Science library provides procedures for all standard execution modes in the namespace <code>gds.triangleCount</code>.
+The algorithm is only defined for undirected graphs, so we make sure to fulfil this requirement in the examples below.</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Triangle Count: examples</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>In order to better understand the concept of triangle counting, let us visualize a part of the GoT graph.
+We will select two characters and only include relationships from the first book between them and their neighbours.
+First make sure to uncheck 'Connect result nodes' in the settings of Neo4j Browser.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->MATCH (n:Person)-[r:INTERACTS_1]-&gt;(m:Person)
+WHERE n.name IN ["Robb Stark", "Tyrion Lannister"]
+RETURN n, m, r<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>How many triangles do you see?</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Triangle Count: examples</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>Let us verify with the triangle count procedure executed on the same subgraph as above.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project.cypher('small_got',
+'MATCH (n:Person) RETURN id(n) AS id',
+"MATCH (n:Person)-[r:INTERACTS_1]-&gt;(m:Person)
+  WHERE n.name IN ['Robb Stark', 'Tyrion Lannister'] RETURN id(n) AS source, id(m) AS target
+  UNION MATCH (n:Person)-[r:INTERACTS_1]-&gt;(m:Person) WHERE n.name IN ['Robb Stark', 'Tyrion Lannister'] RETURN id(m) AS source, id(n) AS target")<!--/code--></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.triangleCount.stream('small_got')
+YIELD nodeId, triangleCount
+WITH gds.util.asNode(nodeId).name AS name, triangleCount
+WHERE triangleCount &gt; 0
+RETURN name, triangleCount<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>As you might have seen, indeed there are exactly two triangles which give Tyrion and Robb triangle counts of two and Tywin and Yoren triangle counts of one.</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Triangle Count: examples</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>For finding the people with the highest overall triangle count in book 1, we can do the following:</p>
+</div>
+<div class="listingblock">
+<div class="title">This will create the named graph we are going to use in the examples (run if not already created)</div>
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project(
+  'got-interactions-1',
+  'Person',
+  {
+    INTERACTS_1: {
+      orientation: 'UNDIRECTED'
+    }
+  }
+);<!--/code--></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.triangleCount.stream('got-interactions-1')
+YIELD nodeId, triangleCount
+RETURN gds.util.asNode(nodeId).name AS name, triangleCount
+ORDER BY triangleCount DESC
+LIMIT 10<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Does perhaps Eddard Stark have an inclination to triangle dramas?</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Triangle Count: stats mode</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>The stats mode can be used to compute the total number of triangles in the graph.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.triangleCount.stats('got-interactions-1')
+YIELD globalTriangleCount<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Triangle Count: max degree</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>For nodes with a high degree, it is expensive to compute the triangle count.
+One can exclude certain nodes from the computation by setting the configuration option <code>maxDegree</code> as follows.
+For each excluded node, the triangle count will be reported as <code>-1</code>.
+These nodes will also be excluded from the triangle counts of the adjacent nodes.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.triangleCount.stream('got-interactions-1', {maxDegree: 10})
+YIELD nodeId, triangleCount
+WHERE triangleCount &lt;&gt; 0
+RETURN gds.util.asNode(nodeId).name AS name, triangleCount
+LIMIT 20<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We note that for example Eddard Stark is no longer in the top list of high triangle count characters since his degree 51 exceeds the <code>maxDegree</code> setting.
+Moreover, the triangle counts for nodes of lower degrees are also affected.
+You can verify this by running the query below with and without <code>maxDegree</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.triangleCount.stream('got-interactions-1', {maxDegree: 10})
+YIELD nodeId, triangleCount
+WITH gds.util.asNode(nodeId).name AS name, triangleCount
+WHERE name = "Halder"
+RETURN name, triangleCount<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Triangle Count: cleanup</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>To clean up the in-memory graph created during the Triangle Count exercise, run the following query:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.drop('got-interactions-1');<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Local Clustering Coefficient</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p><strong>Since GDS 1.2</strong></p>
+</div>
+<div class="paragraph">
+<p>The local clustering coefficient is a metric quantifying how connected the neighborhood of a node is.
+It is the probability that two random neighbors of the node are connected in the graph.
+This can be obtained from the triangle count and the degree of the node.
+The Graph Data Science library provides procedures for all standard execution modes in the namespace <code>gds.localClusteringCoefficient</code>.
+The algorithm is only defined for undirected graphs, so we make sure to fulfil this requirement in the examples below.</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Local Clustering Coefficient: stream mode</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>For finding the people with the highest overall local clustering coefficient in book 1, we can do the following:</p>
+</div>
+<div class="listingblock">
+<div class="title">This will create the named graph we are going to use in the examples (run if not already created)</div>
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project(
+  'got-interactions-1',
+  'Person',
+  {
+    INTERACTS_1: {
+      orientation: 'UNDIRECTED'
+    }
+  }
+);<!--/code--></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.localClusteringCoefficient.stream('got-interactions-1')
+YIELD nodeId, localClusteringCoefficient
+RETURN gds.util.asNode(nodeId).name AS name, localClusteringCoefficient
+ORDER BY localClusteringCoefficient DESC
+LIMIT 10<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We see here multiple nodes with local clustering coefficient 1.0, however they have in fact only few neighbors and triangles, sometimes a single triangle.
+In the following example we will identify nodes with high local clustering coefficient but filter out nodes with low triangle count.</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Local Clustering Coefficient: triangleCountProperty</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>To compute the local clustering coefficient we need to know the number of triangles for each node.
+The Local Clustering Coefficient is capable of reusing previously computed triangle counts.</p>
+</div>
+<div class="paragraph">
+<p>First we compute the triangle counts and save them in the in-memory graph as a node property called <code>triangleCount</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.triangleCount.mutate('got-interactions-1', {mutateProperty: "triangleCount"})<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the following, we look at nodes which have both a high triangle count and a high local clustering coefficient.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.localClusteringCoefficient.stream('got-interactions-1', {triangleCountProperty: "triangleCount"})
+YIELD nodeId, localClusteringCoefficient AS lcc
+WITH gds.util.asNode(nodeId).name AS name , lcc, gds.util.nodeProperty('got-interactions-1', nodeId, "triangleCount") AS triangleCount
+WHERE triangleCount &gt; 50
+RETURN name, lcc, triangleCount
+ORDER BY lcc DESC
+LIMIT 10<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The persons we see here might be regarded as central in medium to large communities.</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Local Clustering Coefficient: stats mode</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>To see if the GoT person graph of book 1 is a small-world network, we can run the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.localClusteringCoefficient.stats('got-interactions-1')
+YIELD averageClusteringCoefficient<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>As we see, the average clustering coefficient of around 0.036 is rather small.
+In comparison, clustering coefficients of 0.11 have been reported for the world wide web and 0.59 for a network of company directors.
+The explanation for the lack of small world structure could be that there are many characters in GoT, and it would require even more pages to turn them into a small-world network.</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Local Clustering Coefficient: cleanup</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>To clean up the in-memory graph created during the Local Clustering Coefficient exercise, run the following query:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.drop('got-interactions-1');<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Betweenness Centrality</h3>
+    <br/>
+    <div>
+      <div class="imageblock" style="float: right;">
+<div class="content">
+<img src="https://upload.wikimedia.org/wikipedia/commons/6/60/Graph_betweenness.svg" alt="Graph betweenness" width="300">
+</div>
+</div>
+<div class="paragraph">
+<p><strong>Since GDS 1.3</strong></p>
+</div>
+<div class="paragraph">
+<p>Betweenness Centrality is a way of detecting the amount of influence a node has over the flow of information in a graph.
+It is often used to find nodes that serve as a bridge from one part of a graph to another.</p>
+</div>
+<div class="paragraph">
+<p><strong>How Betweenness Centrality works</strong></p>
+</div>
+<div class="paragraph">
+<p>The algorithm calculates unweighted shortest paths between all pairs of nodes in a graph.
+Each node receives a score, based on the number of shortest paths that pass through the node.
+Nodes that more frequently lie on shortest paths between other nodes will have higher betweenness centrality scores.</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Betweenness Centrality: stream mode</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>Let&#8217;s find out who is influential in the graph by running Betweenness Centrality.
+If you have removed it from the catalog, you have to create it again:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.project('got-interactions', 'Person', {
+  INTERACTS: {
+    orientation: 'UNDIRECTED'
+  }
+})<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>First, you run the Betweenness Centrality algorithm in <code>stream</code> mode.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.betweenness.stream('got-interactions') YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS name, score
+ORDER BY score DESC LIMIT 10<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you ran Page Rank previously, you may notice that the result is similar.
+You can run the Page Rank query again and compare the result.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.pageRank.stream('got-interactions') YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS name, score
+ORDER BY score DESC LIMIT 10<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The result is similar, but not identical.
+In general Betweenness Centrality is a good metric to identify bottlenecks and bridges in a graph while Page Rank is used to understand the influence of a node in a network.</p>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Betweenness Centrality: sampling</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>This algorithm is very computationally expensive.
+To make it possible to run on large graphs we sample.
+Sampling means we compute the shortest paths for some nodes but not for others.
+The number of nodes sampled is configured using the <code>samplingSize</code> parameter.</p>
+</div>
+<div class="paragraph">
+<p>Find out how many nodes are in your graph:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.graph.list('got-interactions') YIELD nodeCount<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Decide how large of a sample to use.
+Here we run with half the node count as <code>sampleSize</code>.
+The appropriate sample size for a use case will depend on the size and shape of the graph, as well as the resources (RAM and CPU) available.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.betweenness.stream('got-interactions', {samplingSize: 1083}) YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS name, score
+ORDER BY score DESC LIMIT 10<!--/code--></pre>
+</div>
+</div>
+	</div>
+  </div>
+</slide>
+
+
+
+<slide class="row-fluid">
+  <div class="col-sm-12">
+    <h3>Betweenness Centrality: stats, write and mutate</h3>
+    <br/>
+    <div>
+      <div class="paragraph">
+<p>In stats mode, Betweenness Centrality will return statistical and measurement values of the centrality score.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre mode="cypher"  class="highlight pre-scrollable programlisting cm-s-neo code runnable standalone-example ng-binding" data-lang="cypher" lang="cypher"><!--code class="cypher language-cypher"-->CALL gds.betweenness.stats('got-interactions')
+YIELD centralityDistribution<!--/code--></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The same is returned by the write and mutate modes as well, in addition to writing results back to Neo4j or mutating the in-memory graph, respectively.</p>
 </div>
 	</div>
   </div>
@@ -1956,7 +2947,8 @@ The name of the property written to is specified by the config option <code>writ
     <br/>
     <div>
       <div class="paragraph">
-<p>Thank you for learning Graph Algorithms!</p>
+<p>You just learnt how to explore the graph structure and elements by computing centrality and similarity scores, and detecting communities.<br>
+To learn more about the Neo4j Graph Data Science (GDS) library, see <a href="https://neo4j.com/docs/graph-data-science/current/" target="_blank">the documentation</a>.</p>
 </div>
 	</div>
   </div>
